@@ -9,7 +9,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "wishwheel-data",
-    "database_id": "REPLACE_WITH_CREATED_D1_DATABASE_ID",
+    "database_id": "cff7fb98-7dc0-4162-88ef-83c0ec7bcddb",
     "migrations_dir": "worker/migrations"
   }],
   "triggers": { "crons": ["17 * * * *"] },
