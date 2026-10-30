@@ -1,0 +1,1 @@
+SQL bootstrap, CAS conflict, durable throttle, anon/authenticated deny checks PASS (PGlite PostgreSQL).

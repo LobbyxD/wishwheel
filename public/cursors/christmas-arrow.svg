@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="22" viewBox="0 0 320 560">
+ <defs>
+  <path id="arrow" d="M10 10V422l83-78 73 205 70-31-70-192 144 8Z"/>
+  <clipPath id="silhouette"><use href="#arrow"/></clipPath>
+  <linearGradient id="ivory" x2=".8" y2="1"><stop stop-color="#fff9ed"/><stop offset="1" stop-color="#f6ecd7"/></linearGradient>
+ </defs>
+ <use href="#arrow" fill="url(#ivory)" stroke="#790e2c" stroke-width="8" stroke-linejoin="round"/>
+ <g clip-path="url(#silhouette)" fill="#b20c32" stroke="#d5a74d" stroke-width="2.5">
+  <path d="m10 167 82-78 33 38L10 237Z"/>
+  <path d="m10 291 150-124 36 38L10 354Z"/>
+  <path d="m132 438 55-46 17 48-54 48Z"/>
+ </g>
+ <path d="M17 26V405l80-75 74 208 55-25-70-194 137 8Z" fill="none" stroke="#d6ac61" stroke-width="2.5" stroke-linejoin="round"/>
+ <use href="#arrow" fill="none" stroke="#790e2c" stroke-width="8" stroke-linejoin="round"/>
+</svg>

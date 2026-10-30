@@ -1,0 +1,18 @@
+:root{--pointer-gold:#f5d28a;--pointer-rose:#ff9bb1}
+[data-theme=light]{--pointer-gold:#9d6823;--pointer-rose:#b92e50}
+.pointer-magic{position:fixed;inset:0;z-index:200;pointer-events:none!important;overflow:hidden;contain:strict}
+.pointer-spark{position:absolute;display:block;line-height:1;font-family:Georgia,serif;user-select:none;pointer-events:none;filter:drop-shadow(0 0 4px #efb86166);will-change:transform,opacity}
+.trail-spark{filter:none}
+@media(hover:hover) and (pointer:fine){
+ [data-cursor=custom] body{cursor:url('/cursors/christmas-arrow.svg?v=3') 2 1,auto}
+ [data-cursor=custom] :is(button,a[href],select,summary,[role=button],label[for],input[type=checkbox],input[type=radio],input[type=range],input[type=color],.toggle-row,.upload-cover):not(:disabled){cursor:url('/cursors/christmas-pointer.svg?v=3') 2 1,pointer}
+ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),textarea,[contenteditable=true]{cursor:text}
+ button:disabled,input:disabled{cursor:not-allowed}
+}
+@media(forced-colors:active){
+ [data-cursor=custom] body{cursor:auto}
+ [data-cursor=custom] :is(button,a[href],select,summary,[role=button],label[for],input[type=checkbox],input[type=radio],input[type=range],input[type=color],.toggle-row,.upload-cover):not(:disabled){cursor:pointer}
+}
+[data-motion=reduced] .pointer-magic{display:none}
+@media(prefers-reduced-motion:reduce){.pointer-magic{display:none}}
+@media(hover:none) and (pointer:coarse){.cursor-preference{display:none}}

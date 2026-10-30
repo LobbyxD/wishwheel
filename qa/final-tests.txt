@@ -1,0 +1,35 @@
+
+> wishwheel@1.0.0 test
+> node --test tests/*.test.mjs
+
+✔ production boundary returns no-store and own-state without secrets (2.603477ms)
+✔ method, origin and content-type rejected before store access (0.371424ms)
+✔ missing and malformed tokens cannot enumerate room state (0.362791ms)
+✔ rate limit produces retry-after, no record read (0.29411ms)
+✔ internal exceptions never expose secret/query messages (0.256072ms)
+✔ GET state uses same auth boundary and separate read rate classification (0.402802ms)
+✔ codes are six characters with both letters and digits (9.9394ms)
+✔ normalization prevents duplicate and self names (3.947073ms)
+✔ settings reject duplicate custom items and unsafe cover URLs (0.996007ms)
+✔ matching is complete and no-self/no-repeat across sizes and many random seeds (657.73775ms)
+✔ impossible pool fails before start with no partial assignment (1.097709ms)
+✔ canonical custom self labels are excluded even with repeats (0.725513ms)
+✔ repeat mode can reuse items but never a self item (0.199338ms)
+✔ host sees only own result, never tokens or others assignments (1.076517ms)
+✔ hidden pool omits labels and guest custom list before result (1.133683ms)
+✔ spin is idempotent and reset rejects stale spin (0.940174ms)
+✔ random turn lease advances without client finish callback (0.731793ms)
+✔ non-owner cannot start/reset and invalid token cannot view room (0.600897ms)
+✔ room capacity/start boundaries and duplicate request recovery (7.496723ms)
+✔ concurrent spins and duplicate retries preserve unique assignments (3.926012ms)
+✔ concurrent reset wins over stale-generation mutation (0.711763ms)
+✔ mixed pool adds member names, dedupes custom labels, and never self-matches (0.508189ms)
+✔ modern Supabase secret key is apikey only, legacy key has bearer (2.325442ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 856.66447
