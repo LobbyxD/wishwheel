@@ -18,7 +18,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-The development command starts the Vite app and a local-only API. Rooms are saved on this computer in `.wishwheel/rooms.json`, so they survive server restarts. Back up that directory if you need to keep local rooms; it contains private room data and is excluded from Git. Set `WISHWHEEL_DATA_DIR` to store it elsewhere. Local development does not connect to Supabase, even when Supabase environment variables are present. Automated tests use temporary in-memory data.
+The development command starts the Vite app and a local-only API. Rooms are saved on this computer in `.wishwheel/rooms.json`, so they survive server restarts. Back up that directory if you need to keep local rooms; it contains private room data and is excluded from Git. Set `WISHWHEEL_DATA_DIR` to store it elsewhere. Local development never connects to production Cloudflare D1. Automated tests use temporary in-memory data.
 
 Useful commands:
 
@@ -32,20 +32,15 @@ The local API normally uses port 3001. If that port is occupied, it chooses a fr
 
 ## Deploy
 
-Wishwheel uses a Vite frontend, a Vercel serverless API, and Supabase for production room storage. Cloning the repository does not provision either hosted service.
+Wishwheel uses a Vite frontend on Vercel and a Cloudflare Worker with private D1 storage. Use **Workers Free + D1 Free only**; no paid upgrade, Supabase, Blob, or browser database credentials.
 
-1. Create a Supabase project and run [`db/bootstrap.sql`](db/bootstrap.sql) in its SQL editor.
-2. Import this repository into Vercel. The project uses `npm run build` and publishes `dist/`, as configured in [`vercel.json`](vercel.json).
-3. Set the server-only environment variables `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in Vercel. The legacy `SUPABASE_SERVICE_ROLE_KEY` is also supported. Never expose these values through a `VITE_` variable or commit real credentials. See [`.env.example`](.env.example) for the variable names and the [deployment guide](docs/DEPLOYMENT.md) for setup and production checks.
-4. Deploy and complete the deployment guide’s smoke checklist before inviting participants.
-
-Keep the `/api/room` Vercel function available. Room and recovery links use the root URL with query or fragment data; a catch-all SPA rewrite must not intercept API requests.
+Follow [the deployment guide](docs/DEPLOYMENT.md). Create the private D1 database, apply `worker/migrations`, deploy the Worker, then set its public API URL and exact CSP origin before pushing the frontend. GitHub pushes deploy Vercel; Worker code and D1 migrations have a separate explicit deployment step.
 
 ## Privacy and recovery
 
 A room code lets someone join an open room; it does not prove their identity. Each participant has a private device capability. Recovery links and exported recovery files contain that capability, so anyone who receives one can access that participant’s result and, for the host, room controls. Keep them private. A name alone cannot recover a participant’s place.
 
-The browser stores room entries on that device. Use the in-app recovery or backup options before changing devices or clearing browser storage. Recovery files contain credentials, not room data; the corresponding room must still exist on the backend. Production room data remains in Supabase until removed by an administrator. Local room data remains in `.wishwheel/rooms.json` until that file is removed.
+The browser stores room entries on that device. Use the in-app recovery or backup options before changing devices or clearing browser storage. Recovery files contain credentials, not room data; the corresponding room must still exist on the backend. Production room data remains in Cloudflare D1 until removed by an administrator. Local room data remains in `.wishwheel/rooms.json` until that file is removed.
 
 The soundtrack is synthesized locally and begins after user interaction. Home Screen installation is supported; loading and updating rooms still requires a network connection.
 

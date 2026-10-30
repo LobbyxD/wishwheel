@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
-import { AppError, hashToken, validToken } from '../server/engine.mjs';
-import { SupabaseStore } from '../server/store.mjs';
-import { roomService } from '../server/service.mjs';
+import { AppError, hashToken, validToken } from './engine.mjs';
+import { roomService } from './service.mjs';
 
-export function createHandler(createStore=()=>new SupabaseStore()) {
+export function createHandler(createStore) {
  return async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store, max-age=0');
   res.setHeader('Vary','Authorization');
@@ -37,4 +36,4 @@ export function createHandler(createStore=()=>new SupabaseStore()) {
   }
 }
 }
-export default createHandler();
+

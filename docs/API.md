@@ -2,13 +2,11 @@
 
 ## Deployment configuration
 
-- Vite React frontend, Vercel Node serverless route `api/room.js`.
-- Apply `db/bootstrap.sql` only to the explicitly approved Supabase project.
-- Server-only environment: `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (preferred modern sb_secret key); legacy `SUPABASE_SERVICE_ROLE_KEY` is an optional fallback.
-- Never prefix that key with `VITE_`, return it from the API, or put it in source.
-- No Supabase browser client, no public table read, no anonymous auth setup needed.
-- New or persistent secret-key configuration requires the user's action-time approval.
-- Vercel must route `/api/*` to its functions and all other paths to `index.html`.
+- Vite React frontend on Vercel; public API implemented by `worker/index.mjs` on Cloudflare Workers Free.
+- Private D1 binding `DB`, schema in `worker/migrations/0001_rooms.sql`.
+- Exact frontend allowlist `ALLOWED_ORIGINS`; CORS allows Authorization/Content-Type, never cookies.
+- Production endpoint is public metadata in `src/deployment.ts`; CSP must allow that exact Worker origin.
+- No Supabase, Blob, public database access, or Vercel application secrets.
 
 ## Requests
 
@@ -56,7 +54,7 @@ The host can reset a round; results are then discarded and a fresh start rematch
 
 ## Security and limits
 
-Postgres RLS on both tables; no anon/authenticated access; service-only SECURITY INVOKER RPCs. 256-bit session capabilities are hashed before database persistence. All API responses are no-store, and errors omit SQL/secret details. Mutations are same-origin and JSON-only. IP-level and session-level durable rate limits prevent basic brute-force and abuse; no CAPTCHA or external identity verification is claimed. Anyone with a room code can join before start if capacity remains; a name is a display label, not verified identity.
+Private Cloudflare D1 binding: only the Worker and authorized account administrators can access tables; no browser database endpoint. 256-bit session capabilities are hashed before database persistence. All API responses are no-store, and errors omit SQL/secret details. Browser origins are explicitly allowlisted with CORS; mutations are JSON-only and authenticated with bearer capabilities. IP-level and session-level durable rate limits prevent basic brute-force and abuse; no CAPTCHA or external identity verification is claimed. Anyone with a room code can join before start if capacity remains; a name is a display label, not verified identity.
 
 Rate limits: 1200 API requests/IP/min, 90 state requests/session/min, 45 mutations/session/min, 15 creates/IP/hour. Active-room polling starts at 1.5 seconds and scales to 3 seconds for a 50-person room to leave headroom for mutations on shared Wi-Fi. Other phases poll at least every 2.5 seconds.
 
@@ -67,9 +65,9 @@ Rate limits: 1200 API requests/IP/min, 90 state requests/session/min, 45 mutatio
 
 ### Long-term recovery
 
-Room records and private capabilities have no application expiry. Browser room entries retain host/guest role and are no longer truncated to twenty. Recovery JSON uses `{format:"wishwheel-recovery",version:1,rooms:[...]}` and contains private capabilities. Import validates all entries before changing browser storage, merges by code, and preserves existing host entries over guest entries. It does not import or recreate server state. Production rooms continue to use Supabase; local rooms depend on retaining the `.wishwheel` data directory. Old in-memory-only rooms are not retroactively persisted.
+Room records and private capabilities have no application expiry. Browser room entries retain host/guest role and are no longer truncated to twenty. Recovery JSON uses `{format:"wishwheel-recovery",version:1,rooms:[...]}` and contains private capabilities. Import validates all entries before changing browser storage, merges by code, and preserves existing host entries over guest entries. It does not import or recreate server state. Production rooms use private Cloudflare D1; local rooms depend on retaining the `.wishwheel` data directory. Old in-memory-only rooms are not retroactively persisted.
 
-Production verification must additionally inspect SQL permissions/RLS, apply the schema, exercise actual deployed API across separate sessions, and verify secrets are absent from public assets.
+Production verification must additionally inspect the private D1 binding, apply the migrations, exercise actual deployed API across separate sessions, and verify secrets are absent from public assets.
 
 ### Optional deterministic browser fixtures
 

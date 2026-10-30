@@ -1,14 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SupabaseStore} from '../server/store.mjs';
-test('modern Supabase secret key is apikey only, legacy key has bearer',async()=>{
- const original=globalThis.fetch;const calls=[];
- globalThis.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>[]};};
- try{
-  await new SupabaseStore('https://example.supabase.co','sb_secret_test-not-a-real-key').read('ABC234');
-  assert.equal(calls[0].options.headers.apikey,'sb_secret_test-not-a-real-key');
-  assert.equal(calls[0].options.headers.Authorization,undefined);
-  await new SupabaseStore('https://example.supabase.co','legacy-test-not-a-real-key').read('ABC234');
-  assert.equal(calls[1].options.headers.Authorization,'Bearer legacy-test-not-a-real-key');
- }finally{globalThis.fetch=original;}
+import {D1Store} from '../server/store.mjs';
+test('missing D1 binding fails closed; backend errors do not leak details',async()=>{
+ assert.throws(()=>new D1Store(),error=>error.code==='NOT_CONFIGURED'&&error.status===503);
+ const db={prepare(){throw new Error('private SQL internal details');}};
+ await assert.rejects(new D1Store(db).read('ABC234'),error=>error.code==='SERVICE_UNAVAILABLE'&&!error.message.includes('SQL'));
 });

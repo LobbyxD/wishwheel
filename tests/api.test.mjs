@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHandler} from '../api/room.js';
+import {createHandler} from '../server/http.mjs';
 import {createRoom,hashToken,newToken} from '../server/engine.mjs';
 const token=newToken();
 function response(){return {headers:{},setHeader(k,v){this.headers[k]=v;},status(s){this.statusCode=s;return this;},json(b){this.body=b;return this;}};}

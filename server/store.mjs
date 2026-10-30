@@ -1,26 +1,35 @@
 import { AppError, fail } from './engine.mjs';
 
-export class SupabaseStore {
-  constructor(url=process.env.SUPABASE_URL, key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    if (!url || !key) fail('NOT_CONFIGURED','The room service is not configured yet. Please try again later.',503);
-    this.url=url.replace(/\/$/,''); this.key=key;
+// D1 bindings execute on the primary (no read-replica sessions). State and
+// revision are read together; conditional writes never overwrite a newer round.
+export class D1Store {
+  constructor(db) {
+    if (!db?.prepare) fail('NOT_CONFIGURED','The room service is not configured yet. Please try again later.',503);
+    this.db=db;
   }
-  async request(path, options={}) {
-    let response;
-    try {
-      response=await fetch(`${this.url}/rest/v1/${path}`,{...options,headers:{apikey:this.key,...(this.key.startsWith('sb_secret_')?{}:{Authorization:`Bearer ${this.key}`}),'Content-Type':'application/json',...(options.headers||{})},signal:AbortSignal.timeout(12000)});
-    } catch { throw new AppError('SERVICE_UNAVAILABLE','The room service is temporarily unavailable. Please retry.',503); }
-    const data=await response.json().catch(()=>null);
-    if (!response.ok) {
-      if(response.status===409 && data?.code==='23505') throw new AppError('CONFLICT','Room already exists.',409);
-      // Never send database errors, query details, or credentials to the browser.
-      throw new AppError('SERVICE_UNAVAILABLE','The room service is temporarily unavailable. Please retry.',503);
-    }
-    return data;
+  async query(sql, values=[], method='first') {
+    try { return await this.db.prepare(sql).bind(...values)[method](); }
+    catch { throw new AppError('SERVICE_UNAVAILABLE','The room service is temporarily unavailable. Please retry.',503); }
   }
-  async read(code) { const rows=await this.request(`wishwheel_rooms?code=eq.${encodeURIComponent(code)}&select=state,revision`); return rows[0]||null; }
-  async byOwner(hash) { const rows=await this.request(`wishwheel_rooms?owner_hash=eq.${hash}&select=state,revision`); return rows[0]||null; }
-  async insert(state,ownerHash) { return this.request('wishwheel_rooms',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({code:state.code,owner_hash:ownerHash,state})}); }
-  async cas(code,revision,state) { return this.request('rpc/wishwheel_cas',{method:'POST',body:JSON.stringify({p_code:code,p_revision:revision,p_state:state})}); }
-  async rate(bucket,limit,seconds) { return this.request('rpc/wishwheel_rate_limit',{method:'POST',body:JSON.stringify({p_bucket:bucket,p_limit:limit,p_seconds:seconds})}); }
+  decode(row) { return row?{state:JSON.parse(row.state),revision:row.revision}:null; }
+  async read(code) { return this.decode(await this.query('SELECT state, revision FROM wishwheel_rooms WHERE code = ?', [code])); }
+  async byOwner(hash) { return this.decode(await this.query('SELECT state, revision FROM wishwheel_rooms WHERE owner_hash = ?', [hash])); }
+  async insert(state,ownerHash) {
+    const result=await this.query('INSERT INTO wishwheel_rooms (code, owner_hash, state) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',[state.code,ownerHash,JSON.stringify(state)],'run');
+    if(result.meta.changes!==1) throw new AppError('CONFLICT','Room already exists.',409);
+  }
+  async cas(code,revision,state) {
+    const result=await this.query('UPDATE wishwheel_rooms SET state = ?, revision = revision + 1 WHERE code = ? AND revision = ?',[JSON.stringify(state),code,revision],'run');
+    return result.meta.changes===1;
+  }
+  async rate(bucket,limit,seconds) {
+    const now=Math.floor(Date.now()/1000);
+    const row=await this.query(`INSERT INTO wishwheel_limits (bucket, count, expires_at) VALUES (?, 1, ?)
+      ON CONFLICT(bucket) DO UPDATE SET
+        count = CASE WHEN expires_at <= ? THEN 1 ELSE count + 1 END,
+        expires_at = CASE WHEN expires_at <= ? THEN excluded.expires_at ELSE expires_at END
+      RETURNING count`,[bucket,now+seconds,now,now]);
+    return row.count<=limit;
+  }
+  async cleanup() { await this.query('DELETE FROM wishwheel_limits WHERE expires_at <= ?', [Math.floor(Date.now()/1000)],'run'); }
 }
