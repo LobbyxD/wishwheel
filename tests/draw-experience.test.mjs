@@ -18,6 +18,7 @@ const {default:DrawReveal}=await loadSource('../src/DrawReveal.tsx');
 const {RosterFields}=await loadSource('../src/RosterFields.tsx');
 const {applyRoomEvent,reconcileState,settleRoomSpins}=await loadSource('../src/room-state.ts');
 const {useAccount,signInWithGoogle}=await loadSource('../src/auth.ts');
+const {inkParticles,inkFrame,dissolveInk}=await loadSource('../src/ink-dissolve.ts');
 
 test('landed slice geometry and fly-to-card transforms stay finite for every supported wheel size',()=>{
  for(let count=1;count<=100;count++){
@@ -46,7 +47,7 @@ test('popped slices preserve the wheel sector proportions on desktop, mobile and
 function dom(t){
  const window=new Window({url:'http://localhost:5173'}),document=window.document;
  const saved=new Map();
- for(const [key,value] of Object.entries({window,document,HTMLElement:window.HTMLElement,Element:window.Element,Node:window.Node,getComputedStyle:window.getComputedStyle.bind(window),matchMedia:()=>({matches:false}),requestAnimationFrame:callback=>{queueMicrotask(()=>callback(0));return 1;},IS_REACT_ACT_ENVIRONMENT:true})){
+ for(const [key,value] of Object.entries({window,document,HTMLElement:window.HTMLElement,Element:window.Element,Node:window.Node,getComputedStyle:window.getComputedStyle.bind(window),matchMedia:()=>({matches:false}),requestAnimationFrame:callback=>{queueMicrotask(()=>callback(0));return 1;},cancelAnimationFrame:()=>{},IS_REACT_ACT_ENVIRONMENT:true})){
   saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{value,configurable:true,writable:true});
  }
  const animations=[];
@@ -96,6 +97,7 @@ test('first-result popup twirls to its back, vanishes the text, morphs and docks
  assert.equal(document.querySelector('.result-ink').getAttribute('aria-label'),secret);
  await act(async()=>{document.querySelector('.draw-controls button').click();await tick();});
  assert.ok(animations.some(animation=>animation.element.matches('.result-ink [data-ink]')&&animation.frames.at(-1).opacity===0));
+ assert.ok(animations.filter(animation=>animation.element.matches('.result-ink [data-ink]')).every(animation=>animation.frames.every(frame=>!frame.transform&&!frame.filter)));
  await finish(animations,animation=>animation.element.matches('.result-ink [data-ink]'));
  assert.ok(document.querySelector('.draw-reveal').classList.contains('phase-docking'));
  assert.ok(!document.querySelector('.draw-reveal').textContent.includes(secret));
@@ -212,4 +214,36 @@ test('natural text fitting chooses only font size and never exceeds its measured
  assert.equal(naturalFontSize(size=>size<=23),23);
  assert.equal(naturalFontSize(()=>true),36);
  assert.equal(naturalFontSize(()=>false),8);
+});
+
+test('evaporating particles originate only in letter pixels and disperse upward after the stationary ink erodes',()=>{
+ const width=12,height=12,data=new Uint8ClampedArray(width*height*4);
+ for(let y=2;y<10;y++)for(let x=2;x<10;x++)if(x<4||y>7)data[(y*width+x)*4+3]=255;
+ const particles=inkParticles(data,width,height);assert.ok(particles.length>0);
+ assert.ok(particles.every(point=>data[(point.y*width+point.x)*4+3]>0));
+ assert.equal(inkFrame(0,particles).intercept,2);assert.equal(inkFrame(850,particles).intercept,-18);
+ const grain={x:20,y:40,delay:0,life:1000,drift:0,rise:100,size:1,alpha:1};
+ const middle=inkFrame(500,[grain]).particles[0];assert.ok(middle.y<grain.y);assert.ok(middle.alpha>0&&middle.alpha<1);assert.ok(middle.size<grain.size);
+ assert.equal(inkFrame(1500,particles).particles.length,0);
+});
+
+test('canvas evaporation erodes alpha without moving the label, clears after completion, and cancels cleanly',async t=>{
+ const {document,root}=dom(t);
+ await act(async()=>{root.render(fixture(()=>{},true,'Daniel'));await tick();});
+ const text=document.querySelector('[data-ink]'),cloud=document.querySelector('.ink-cloud'),alpha=document.querySelector('feFuncA');
+ const frames=new Map();let frameId=0,arcs=0;
+ globalThis.requestAnimationFrame=callback=>{frames.set(++frameId,callback);return frameId;};globalThis.cancelAnimationFrame=id=>frames.delete(id);
+ const context={setTransform(){},clearRect(){},beginPath(){},arc(){arcs++;},fill(){},fillText(){},measureText(){return {fontBoundingBoxAscent:12,fontBoundingBoxDescent:4};},getImageData(_x,_y,width,height){const data=new Uint8ClampedArray(width*height*4);for(let y=10;y<20;y++)for(let x=10;x<30;x++)data[(y*width+x)*4+3]=255;return {data};}};
+ window.HTMLCanvasElement.prototype.getContext=()=>context;
+ document.createRange=()=>({setStart(){},setEnd(){},getBoundingClientRect(){return {left:50,right:100,top:650,height:20};}});
+ const start=performance.now(),controller=new AbortController();
+ const running=dissolveInk({text,cloud,alpha,filterId:'test-ink',signal:controller.signal});
+ assert.ok(text.style.filter.includes('test-ink'));assert.equal(text.style.transform,'');
+ const advance=elapsed=>{const pending=[...frames.values()];frames.clear();for(const callback of pending)callback(start+elapsed);};
+ advance(500);assert.ok(Number(alpha.getAttribute('intercept'))<2);assert.ok(arcs>0);assert.equal(text.style.transform,'');
+ advance(2000);await running;assert.equal(text.style.visibility,'hidden');assert.equal(text.style.filter,'');assert.equal(cloud.style.display,'none');assert.equal(frames.size,0);
+ text.style.visibility='';const aborted=new AbortController();const cancelling=dissolveInk({text,cloud,alpha,filterId:'test-ink',signal:aborted.signal});aborted.abort();await cancelling;
+ assert.equal(text.style.visibility,'');assert.equal(text.style.filter,'');assert.equal(cloud.style.display,'none');assert.equal(frames.size,0);
+ let samples=0;window.HTMLCanvasElement.prototype.getContext=()=>{samples++;return null;};
+ await dissolveInk({text,cloud,alpha,filterId:'test-ink',signal:new AbortController().signal,reduced:true});assert.equal(samples,0);assert.equal(text.style.visibility,'hidden');
 });

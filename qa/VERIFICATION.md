@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-31. This describes checks actually performed, not an assertion of live production readiness.
 
+## 2026-10-31: ink dissolution
+
+Closing the result now erodes the stationary native text with a fine SVG alpha-noise mask. Canvas particles are sampled from the glyph pixels, rise and disperse for 1.5 seconds, then clear before the slice starts its return spin/morph. The earlier moving/blurred label and generic golden particles were removed. Reduced motion skips the effect; unavailable Canvas falls back to a stationary fade. All 100 tests and the production build pass, including glyph-only emission, mask progression, upward dispersal, cancellation/cleanup, and absence of text translation/blur. No connected browser surface was available to verify appearance visually.
+
 ## 2026-10-31: natural text and shared wheel path
 
 The earlier aspect-ratio change left SVG `textLength`/`spacingAndGlyphs` forcing result letters to estimated widths. Result labels now use normal HTML typography fitted by actual DOM width/height measurements; only font size and wrapping change. Popup surfaces and the original wheel now share the same SVG sector path, with one uniformly scaled wheel canvas and a smaller maximum reveal size. All 98 tests and the production build pass. DOM tests confirm no forced glyph-width attributes remain and cover long/Hebrew labels. Browser inventory is empty and opening the in-app browser reports it is unavailable, so final appearance has not been visually verified.

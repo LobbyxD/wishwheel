@@ -7,7 +7,7 @@ The update is based on `cf53a26`, pulled from `origin/main` on 2026-10-31. Earli
 1. A successful spin animates the wheel for 4.8 seconds; the server picking lease remains six seconds.
 2. After the spin, the actual slice shape and cover crop lift from the wheel and grow while twirling. The slice floats over the room with a transparent surrounding area and light background blur; there is no enclosing card. It slows down and stops on its back.
 3. The result text appears only after the flip completes. Keyboard focus stays in the dialog; the rest of the app is inert.
-4. Closing or pressing Escape vaporizes the value into the air first. The blank slice then spins again while morphing into a rectangle and moving to the result card below. On small screens the destination is scrolled into view before the move.
+4. Closing or pressing Escape dissolves the ink in place: a fine grain mask erodes the actual letters while particles sampled from their strokes rise and dissipate. The effect lasts 1.5 seconds, without translating or blurring the whole label. The blank slice then spins again while morphing into a rectangle and moving to the result card below. On small screens the destination is scrolled into view before the move.
 5. The permanent card remains hidden until tapped. A saved result reopened later does not replay this dialog. Reset, removal or navigation cancels the pending animation and restores normal interaction.
 6. The app motion toggle and OS Reduce Motion preference skip travel, twirling and particle motion while preserving the reveal and close controls.
 

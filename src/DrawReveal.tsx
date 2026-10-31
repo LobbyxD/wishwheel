@@ -1,10 +1,11 @@
 import {useId,useLayoutEffect,useRef,useState} from 'react';
-import type {CSSProperties,RefObject} from 'react';
+import type {RefObject} from 'react';
 import {createPortal} from 'react-dom';
 import {ArrowDown,Gift,LockKeyhole,Sparkles,X} from 'lucide-react';
 import {animateElement,landedSlice,naturalFontSize,rectTransform,sliceRevealSize,sliceSource} from './draw-motion';
 import type {Item,Settings} from './types';
 import {en,he} from './i18n';
+import {dissolveInk} from './ink-dissolve';
 
 export default function DrawReveal({result,count,index,settings,wheel,destination,onDock,hebrew=false,reduced=false}:{
  result:Item;count:number;index:number;settings:Settings;wheel:RefObject<HTMLDivElement|null>;destination:RefObject<HTMLElement|null>;onDock:()=>void;hebrew?:boolean;reduced?:boolean;
@@ -14,6 +15,7 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
  const size=sliceRevealSize(count,viewport);
  const [phase,setPhase]=useState<'arriving'|'revealed'|'vanishing'|'docking'>('arriving');
  const ticket=useRef<HTMLDivElement>(null),flipper=useRef<HTMLDivElement>(null),ink=useRef<HTMLDivElement>(null),closeButton=useRef<HTMLButtonElement>(null);
+ const inkCloud=useRef<HTMLCanvasElement>(null),inkAlpha=useRef<SVGFEFuncAElement>(null);
  const lifetime=useRef(new AbortController()),intro=useRef(new AbortController()),closing=useRef(false),closeAction=useRef(()=>{});
  const onDockRef=useRef(onDock);onDockRef.current=onDock;
  const image= settings.wheelHidden&&settings.coverType==='image';
@@ -74,8 +76,8 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
   piece.getAnimations().forEach(animation=>animation.cancel());
   const reduce=reduced||matchMedia('(prefers-reduced-motion: reduce)').matches;
   setPhase('vanishing');
-  const words=ink.current?.querySelectorAll('[data-ink]')||[];
-  await Promise.all([...words].map((word,index)=>animateElement(word,[{opacity:1,filter:'blur(0)',transform:'translateY(0)'},{opacity:0,filter:'blur(12px)',transform:`translate(${index%2?14:-14}px,-70px) scale(.65)`}],{duration:reduce?0:600,delay:reduce?0:Math.min(index*45,150),easing:'ease-in',fill:'forwards'},signal)));
+  const text=ink.current?.querySelector<HTMLElement>('[data-ink]');
+  if(text&&inkCloud.current&&inkAlpha.current)await dissolveInk({text,cloud:inkCloud.current,alpha:inkAlpha.current,filterId:`${id}-ink-dissolve`,signal,reduced:reduce});
   if(signal.aborted)return;
   setPhase('docking');
   // Scroll behind the fixed dialog first so the destination is visible on phones.
@@ -92,6 +94,13 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
  }
  closeAction.current=()=>void close();
  return createPortal(<div className={`draw-reveal phase-${phase}`} dir={hebrew?'rtl':'ltr'} onClick={event=>{if(event.target===event.currentTarget)void close();}}>
+  <svg className="ink-filter-defs" aria-hidden="true" focusable="false"><defs><filter id={`${id}-ink-dissolve`} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+   <feTurbulence type="fractalNoise" baseFrequency=".22 .28" numOctaves="2" seed="17" stitchTiles="stitch" result="grain"/>
+   <feColorMatrix in="grain" type="luminanceToAlpha" result="grain-alpha"/>
+   <feComponentTransfer in="grain-alpha" result="eroding-ink"><feFuncA ref={inkAlpha} type="linear" slope="18" intercept="2"/></feComponentTransfer>
+   <feComposite in="SourceGraphic" in2="eroding-ink" operator="in"/>
+  </filter></defs></svg>
+  <canvas ref={inkCloud} className="ink-cloud" aria-hidden="true"/>
   <section className="draw-dialog" role="dialog" aria-modal="true" aria-labelledby="draw-title" aria-describedby="draw-description">
    <button className="icon-button draw-close" ref={closeButton} onClick={()=>void close()} disabled={closing.current} aria-label={t.close}><X size={21}/></button>
    <p className="eyebrow draw-kicker"><Sparkles size={14}/>{t.onlyYourEyes}</p>
@@ -109,7 +118,7 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
       <div ref={ink} className="result-ink" aria-live="polite" aria-label={phase==='revealed'?result.label:t.yourSecretGift}>{(phase==='revealed'||phase==='vanishing')&&<strong data-ink="true" dir="auto">{result.label}</strong>}</div>
       {size.width>60&&<LockKeyhole className="slice-private-mark" size={15}/>}</div>
     </div>
-   </div></div><div className="draw-halo" aria-hidden="true"/>{phase==='vanishing'&&<div className="ink-vapor" aria-hidden="true">{Array.from({length:22},(_,index)=><i key={index} style={{'--vapor-x':`${(index%7-3)*17}px`,'--vapor-delay':`${index%5*35}ms`} as CSSProperties}/>)}</div>}</div>
+   </div></div><div className="draw-halo" aria-hidden="true"/></div>
    <div className="draw-controls"><button className="button primary" onClick={()=>void close()} disabled={closing.current}><ArrowDown size={17}/>{t.keepMySurprise}</button><p>{t.hiddenAfterClose}</p></div>
   </section>
  </div>,document.body);
