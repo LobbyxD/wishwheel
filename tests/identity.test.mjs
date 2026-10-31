@@ -131,3 +131,14 @@ test('private-code guesses are limited before room data is read',async()=>{
  const response=await createWorker(()=>store).fetch(req('/api/room',{action:'join',code:'AB23CD',inviteCode:'ZZ2ABC'},'',{Authorization:`Bearer ${newToken()}`}),{ALLOWED_ORIGINS:origin});
  assert.equal(response.status,429);assert.equal(read,false);
 });
+
+test('live tickets enforce Google locks and never trust a JSON account identity',async()=>{
+ const {store,code,codes}=await setup();await roomService(store,{action:'join',code,inviteCode:codes.Bob.code},bob,100,googleA);
+ let issued=0;const env={ALLOWED_ORIGINS:origin,ROOM_LIVE:{idFromName:value=>value,get(){return {async fetch(){issued++;return Response.json({ticket:newToken()});}};}}};
+ const worker=createWorker(()=>store);
+ const stolen=await worker.fetch(req('/api/live-ticket',{code,account:googleA},'',{Authorization:`Bearer ${bob}`}),env);
+ assert.equal(stolen.status,403);assert.equal(issued,0);
+ const session=newToken();await store.sessionInsert(hashToken(session),{account:googleA,expiresAt:Date.now()+60000});
+ const allowed=await worker.fetch(req('/api/live-ticket',{code},`__Host-ww_google_session=${session}`),env);
+ assert.equal(allowed.status,200);assert.equal(issued,1);assert.ok((await allowed.json()).ticket);
+});

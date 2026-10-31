@@ -5,15 +5,17 @@ The update is based on `cf53a26`, pulled from `origin/main` on 2026-10-31. Earli
 ## Personal reveal
 
 1. A successful spin animates the wheel for 4.8 seconds; the server picking lease remains six seconds.
-2. After the spin, the actual slice shape and cover crop lift from the wheel into a private dialog. It twirls through several turns, slows down and stops on its back.
+2. After the spin, the actual slice shape and cover crop lift from the wheel and grow while twirling. The slice floats over the room with a transparent surrounding area and light background blur; there is no enclosing card. It slows down and stops on its back.
 3. The result text appears only after the flip completes. Keyboard focus stays in the dialog; the rest of the app is inert.
-4. Closing or pressing Escape makes the text vanish, morphs the slice into a rectangle, and moves it to the result card below. On small screens the destination is scrolled into view before the move.
+4. Closing or pressing Escape vaporizes the value into the air first. The blank slice then spins again while morphing into a rectangle and moving to the result card below. On small screens the destination is scrolled into view before the move.
 5. The permanent card remains hidden until tapped. A saved result reopened later does not replay this dialog. Reset, removal or navigation cancels the pending animation and restores normal interaction.
 6. The app motion toggle and OS Reduce Motion preference skip travel, twirling and particle motion while preserving the reveal and close controls.
 
 ## Other players
 
-Visible clients continue polling during active rounds, even after receiving their own result. Public spin start/end timestamps let them animate current turns and celebrate a turn completed between polling ticks. The shared wheel rotation is decorative: no other person's item or landing angle is transmitted. Completed historical turns do not replay when someone rejoins. Concurrent non-turn spins can share a celebration.
+Visible clients subscribe to authenticated live notifications, including after receiving their own result. Public spin start/end timestamps let them animate current turns and advance at completion without another API request. Reconnection, safety refreshes and a short polling fallback keep state synchronized. The shared wheel rotation is decorative: no other person's item or landing angle is transmitted. Completed historical turns do not replay when someone rejoins. Concurrent non-turn spins can share a celebration.
+
+Result labels use fitted SVG lines inside a fixed safe area of the slice. Long labels and Hebrew wrap and shrink without introducing an inner scrollbar. Guest creation uses individual fields with Add another/remove controls. The former 50-person cap is removed, while provider storage/request limits remain practical bounds.
 
 ## Automated evidence
 

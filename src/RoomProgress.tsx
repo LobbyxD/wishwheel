@@ -29,15 +29,17 @@ export function GuestList({state, hebrew = false, onRefresh, onKick, busy=false}
  const t = hebrew ? he : en;
  const {room, me} = state;
  const [removing,setRemoving]=useState<Member|null>(null);
+ const [visibleCount,setVisibleCount]=useState(25);
  const order = room.phase !== 'lobby' && room.settings.turnBased ? room.turnOrder || [] : [];
- const members = order.length ? order.map(id => room.members.find(member => member.id === id)).filter(member => member !== undefined) : room.members;
+ const byId=new Map(room.members.map(member=>[member.id,member])),rank=new Map(order.map((id,index)=>[id,index]));
+ const members = order.length ? order.map(id => byId.get(id)).filter(member => member !== undefined) : room.members;
  return <section className="panel guest-panel">
   <div className="section-heading"><h2>{t.members}</h2><span className="count-pill"><Users size={12} />{room.members.length}/{room.settings.maxMembers}</span></div>
   {order.length > 0 && <p className="queue-caption">{t.queue}</p>}
-  <div className="guest-list">{members.map((member, index) => {
+  <div className="guest-list">{members.slice(0,visibleCount).map((member, index) => {
    const current = room.phase === 'active' && room.turnMemberId === member.id;
    const ready = member.status === 'waiting' && room.phase === 'active' && (!room.settings.turnBased || current);
-   const next = room.phase === 'active' && room.settings.turnBased && member.status === 'waiting' && !current && order.indexOf(member.id) === order.indexOf(room.turnMemberId || '') + 1;
+   const next = room.phase === 'active' && room.settings.turnBased && member.status === 'waiting' && !current && rank.get(member.id) === (rank.get(room.turnMemberId||'')??-1)+1;
    const status = member.status === 'picked' ? t.picked : member.status === 'picking' ? t.picking : room.phase === 'lobby' ? t.joinedStatus : ready ? member.id === me.id ? t.youAreNext : t.readyToSpin : next ? t.upNext : t.waitingForTurn;
    return <div className={`guest-row ${current ? 'current-player' : ''}`} key={member.id} aria-current={current ? 'step' : undefined}>
     {order.length > 0 && <span className="queue-position">{member.status === 'picked' ? <Check size={12} /> : String(index + 1).padStart(2, '0')}</span>}
@@ -49,6 +51,7 @@ export function GuestList({state, hebrew = false, onRefresh, onKick, busy=false}
     {me.isOwner&&member.id!==me.id&&onKick&&<button className="kick-button" disabled={busy} onClick={()=>setRemoving(member)} aria-label={`${t.kick}: ${member.name}`} title={t.kick}><UserRoundMinus size={15}/></button>}
    </div>;
   })}</div>
+  {members.length>visibleCount&&<button className="text-button" onClick={()=>setVisibleCount(value=>value+25)}>{t.showMorePeople} ({members.length-visibleCount})</button>}
   <div className="auto-update"><span className="live-dot" />{t.online}<button onClick={onRefresh} aria-label={t.refresh}><RefreshCw size={13} /></button></div>
   {removing&&onKick&&<KickDialog member={removing} active={room.phase!=='lobby'} busy={busy} hebrew={hebrew} onCancel={()=>setRemoving(null)} onConfirm={async()=>{if(await onKick(removing.id))setRemoving(null);}}/>}
  </section>;

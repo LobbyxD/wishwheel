@@ -26,5 +26,21 @@
   },
   "observability": {
     "enabled": false
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOM_LIVE",
+        "class_name": "RoomLive"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "room-live-v1",
+      "new_sqlite_classes": [
+        "RoomLive"
+      ]
+    }
+  ]
 }

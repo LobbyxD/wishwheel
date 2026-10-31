@@ -1,17 +1,17 @@
 import {useLayoutEffect,useRef,useState} from 'react';
-import type {RefObject} from 'react';
+import type {CSSProperties,RefObject} from 'react';
 import {createPortal} from 'react-dom';
 import {ArrowDown,Gift,LockKeyhole,Sparkles,X} from 'lucide-react';
-import {animateElement,landedSlice,rectTransform,sliceSource} from './draw-motion';
+import {animateElement,fitSliceLabel,landedSlice,rectTransform,sliceSource} from './draw-motion';
 import type {Item,Settings} from './types';
 import {en,he} from './i18n';
 
 export default function DrawReveal({result,count,index,settings,wheel,destination,onDock,hebrew=false,reduced=false}:{
  result:Item;count:number;index:number;settings:Settings;wheel:RefObject<HTMLDivElement|null>;destination:RefObject<HTMLElement|null>;onDock:()=>void;hebrew?:boolean;reduced?:boolean;
 }){
- const t=hebrew?he:en,shape=landedSlice(count);
+ const t=hebrew?he:en,shape=landedSlice(count),label=fitSliceLabel(result.label);
  const [phase,setPhase]=useState<'arriving'|'revealed'|'vanishing'|'docking'>('arriving');
- const ticket=useRef<HTMLDivElement>(null),flipper=useRef<HTMLDivElement>(null),back=useRef<HTMLDivElement>(null),ink=useRef<HTMLDivElement>(null),closeButton=useRef<HTMLButtonElement>(null);
+ const ticket=useRef<HTMLDivElement>(null),flipper=useRef<HTMLDivElement>(null),back=useRef<HTMLDivElement>(null),ink=useRef<SVGSVGElement>(null),closeButton=useRef<HTMLButtonElement>(null);
  const lifetime=useRef(new AbortController()),intro=useRef(new AbortController()),closing=useRef(false),closeAction=useRef(()=>{});
  const onDockRef=useRef(onDock);onDockRef.current=onDock;
  const image= settings.wheelHidden&&settings.coverType==='image';
@@ -35,7 +35,7 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
   const source=wheel.current?.querySelector('svg')?.getBoundingClientRect();
   const start=source?sliceSource(source,count):piece.getBoundingClientRect();
   void Promise.all([
-   animateElement(piece,[{transform:rectTransform(start,piece.getBoundingClientRect()),opacity:.3},{transform:'translate(0,-16px) scale(1.06)',opacity:1,offset:.75},{transform:'none',opacity:1}],{duration:reducedMotion?0:650,easing:'cubic-bezier(.16,.8,.24,1)',fill:'both'},signal),
+   animateElement(piece,[{transform:rectTransform(start,piece.getBoundingClientRect()),opacity:.3},{transform:'translate(0,-18px) scale(1.12)',opacity:1,offset:.75},{transform:'none',opacity:1}],{duration:reducedMotion?0:1600,easing:'cubic-bezier(.16,.8,.24,1)',fill:'both'},signal),
    animateElement(flip,[{transform:'rotateY(0deg) rotateZ(-8deg)'},{transform:'rotateY(1980deg) rotateZ(0deg)'}],{duration:reducedMotion?0:2050,easing:'cubic-bezier(.12,.68,.12,1)',fill:'forwards'},signal),
   ]).then(()=>{if(!signal.aborted){flip.style.transform='rotateY(1980deg)';setPhase('revealed');}});
   return()=>{
@@ -54,8 +54,8 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
   piece.getAnimations().forEach(animation=>animation.cancel());
   const reduce=reduced||matchMedia('(prefers-reduced-motion: reduce)').matches;
   setPhase('vanishing');
-  const words=ink.current?.querySelectorAll('span')||[];
-  await Promise.all([...words].map((word,index)=>animateElement(word,[{opacity:1,filter:'blur(0)',transform:'translateY(0)'},{opacity:0,filter:'blur(12px)',transform:`translate(${index%2?14:-14}px,-18px) scale(.8)`}],{duration:reduce?0:420,delay:reduce?0:Math.min(index*35,140),easing:'ease-in',fill:'forwards'},signal)));
+  const words=ink.current?.querySelectorAll('[data-ink]')||[];
+  await Promise.all([...words].map((word,index)=>animateElement(word,[{opacity:1,filter:'blur(0)',transform:'translateY(0)'},{opacity:0,filter:'blur(12px)',transform:`translate(${index%2?14:-14}px,-70px) scale(.65)`}],{duration:reduce?0:600,delay:reduce?0:Math.min(index*45,150),easing:'ease-in',fill:'forwards'},signal)));
   if(signal.aborted)return;
   setPhase('docking');
   // Scroll behind the fixed dialog first so the destination is visible on phones.
@@ -64,8 +64,9 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
   if(signal.aborted)return;
   const target=destination.current?.getBoundingClientRect(),origin=piece.getBoundingClientRect();
   await Promise.all([
-   animateElement(back.current!,[{clipPath:shape.polygon,borderRadius:'0'},{clipPath:shape.rectangle,borderRadius:'18px'}],{duration:reduce?0:650,easing:'cubic-bezier(.22,.8,.2,1)',fill:'forwards'},signal),
-   animateElement(piece,[{transform:'none',opacity:1},{transform:target?rectTransform(target,origin):'translateY(100px) scale(.7)',opacity:1,offset:.9},{transform:target?rectTransform(target,origin):'translateY(100px) scale(.7)',opacity:0}],{duration:reduce?0:850,easing:'cubic-bezier(.32,.04,.16,1)',fill:'forwards'},signal),
+   ...[...flip.querySelectorAll('.slice-face')].map(face=>animateElement(face,[{clipPath:shape.polygon,borderRadius:'0'},{clipPath:shape.rectangle,borderRadius:'18px'}],{duration:reduce?0:850,delay:reduce?0:150,easing:'cubic-bezier(.22,.8,.2,1)',fill:'forwards'},signal)),
+   animateElement(flip,[{transform:'rotateY(1980deg) rotateZ(0deg)'},{transform:'rotateY(3420deg) rotateZ(0deg)'}],{duration:reduce?0:1100,easing:'cubic-bezier(.12,.66,.16,1)',fill:'forwards'},signal),
+   animateElement(piece,[{transform:'none',opacity:1},{transform:'translateY(-12px) scale(1.04)',opacity:1,offset:.15},{transform:target?rectTransform(target,origin):'translateY(100px) scale(.7)',opacity:1,offset:.94},{transform:target?rectTransform(target,origin):'translateY(100px) scale(.7)',opacity:0}],{duration:reduce?0:1200,easing:'cubic-bezier(.32,.04,.16,1)',fill:'forwards'},signal),
   ]);
   if(!signal.aborted)onDockRef.current();
  }
@@ -82,12 +83,13 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
      <div className="slice-front-magic"><Gift size={46} strokeWidth={1}/><span>✦</span></div>
     </div>
     <div ref={back} className="slice-face slice-back" style={{clipPath:shape.polygon}}>
-     <div className="slice-back-content"><Gift size={26} strokeWidth={1.3}/><span className="slice-eyebrow">{t.yourSecretGift}</span>
-      <div ref={ink} className="result-ink" aria-live="polite">{(phase==='revealed'||phase==='vanishing')&&<strong dir="auto">{result.label.split(/(\s+)/).map((word,index)=>/^\s+$/.test(word)?word:<span key={index}>{word}</span>)}</strong>}</div>
-      <LockKeyhole size={14}/>
-     </div>
+     <svg className="slice-back-content result-ink" viewBox="0 0 1000 1000" ref={ink} role="img" aria-live="polite" aria-label={phase==='revealed'?result.label:t.yourSecretGift}>
+      <Gift x={460} y={90} width={80} height={80} strokeWidth={1.3}/><text className="slice-eyebrow" x="500" y="220" textAnchor="middle" fontSize="27">{t.yourSecretGift}</text>
+      {(phase==='revealed'||phase==='vanishing')&&label.lines.map((line,index)=><text data-ink="true" key={index} x="500" y={390-(label.lines.length-1)*label.fontSize*.6+index*label.fontSize*1.2} textAnchor="middle" direction={hebrew?'rtl':'ltr'} fontSize={label.fontSize} textLength={line.width} lengthAdjust="spacingAndGlyphs">{line.text}</text>)}
+      <LockKeyhole x={478} y={560} width={44} height={44}/>
+     </svg>
     </div>
-   </div></div><div className="draw-halo" aria-hidden="true"/></div>
+   </div></div><div className="draw-halo" aria-hidden="true"/>{phase==='vanishing'&&<div className="ink-vapor" aria-hidden="true">{Array.from({length:22},(_,index)=><i key={index} style={{'--vapor-x':`${(index%7-3)*17}px`,'--vapor-delay':`${index%5*35}ms`} as CSSProperties}/>)}</div>}</div>
    <div className="draw-controls"><button className="button primary" onClick={()=>void close()} disabled={closing.current}><ArrowDown size={17}/>{t.keepMySurprise}</button><p>{t.hiddenAfterClose}</p></div>
   </section>
  </div>,document.body);

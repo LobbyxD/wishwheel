@@ -1,21 +1,26 @@
-import {useEffect, useState} from 'react';
-import {Check, ListChecks, LoaderCircle, LockKeyhole, Users} from 'lucide-react';
+import {useEffect,useLayoutEffect,useRef,useId,useState} from 'react';
+import {Check,ListChecks,LoaderCircle,LockKeyhole,Plus,Users,X} from 'lucide-react';
 import {en, he} from './i18n';
 import {request,savedRooms,makeToken} from './api';
 import {message} from './errors';
 import type {RoomPreview, Settings, State} from './types';
 
-export const rosterLines = (text: string) => text.split('\n').map(name => name.trim()).filter(Boolean);
+export const rosterValues=(names:string[])=>names.map(name=>name.trim()).filter(Boolean);
 
-export function RosterFields({settings, text, onText, onMode, hebrew = false}: {
- settings: Settings; text: string; onText: (text: string) => void; onMode: (mode: Settings['participantMode']) => void; hebrew?: boolean;
+export function RosterFields({settings,names,onNames,onMode,hebrew=false}: {
+ settings:Settings;names:string[];onNames:(names:string[])=>void;onMode:(mode:Settings['participantMode'])=>void;hebrew?:boolean;
 }) {
  const t = hebrew ? he : en;
+ const container=useRef<HTMLDivElement>(null),focusIndex=useRef<number|null>(null),id=useId();
+ useLayoutEffect(()=>{if(focusIndex.current!==null){container.current?.querySelectorAll('input')[focusIndex.current]?.focus();focusIndex.current=null;}},[names.length]);
  return <div className="roster-fields"><span className="field-label">{t.participantMode}</span>
   <div className="choice-grid roster-choices">{(['open','roster'] as const).map(mode => <button type="button" key={mode} className={`choice ${settings.participantMode === mode ? 'chosen' : ''}`} aria-pressed={settings.participantMode === mode} onClick={() => onMode(mode)}>
    {mode === 'roster' ? <ListChecks size={22} /> : <Users size={22} />}<strong>{mode === 'roster' ? t.listedGuests : t.openGuests}</strong><small>{mode === 'roster' ? t.privateRosterDesc : t.openGuestsDesc}</small>
   </button>)}</div>
-  {settings.participantMode === 'roster' && <label>{t.rosterNames}<textarea value={text} onChange={event => onText(event.target.value)} rows={5} maxLength={2000} placeholder={'Alice\nBob\nCarol'} required /><small className="muted">{t.rosterHint} · {rosterLines(text).length}/50</small></label>}
+  {settings.participantMode==='roster'&&<fieldset className="roster-editor"><legend>{t.guestNames}</legend><p className="small muted">{t.guestNamesHint}</p><div className="roster-inputs" ref={container}>{names.map((name,index)=><div className="roster-input-row" key={index}>
+   <label htmlFor={`${id}-${index}`}>{t.guest} {index+1}</label><input id={`${id}-${index}`} value={name} autoComplete="off" maxLength={32} required placeholder={t.namePlaceholder} onChange={event=>onNames(names.map((value,position)=>position===index?event.target.value:value))} onPaste={event=>{const pasted=event.clipboardData.getData('text').split(/\r?\n/).map(value=>value.trim()).filter(Boolean);if(pasted.length>1){event.preventDefault();onNames([...names.slice(0,index),...pasted,...names.slice(index+1)]);}}}/>
+   <button type="button" className="icon-button" disabled={names.length<=2} aria-label={`${t.removePerson} ${index+1}`} onClick={()=>{focusIndex.current=Math.max(0,index-1);onNames(names.filter((_,position)=>position!==index));}}><X size={16}/></button>
+  </div>)}</div><button type="button" className="button secondary add-person" onClick={()=>{focusIndex.current=names.length;onNames([...names,'']);}}><Plus size={17}/>{t.addAnother}</button><p className="small muted">{rosterValues(names).length} {t.peopleReady} · {t.includeHost}</p></fieldset>}
  </div>;
 }
 
@@ -63,10 +68,10 @@ export function JoinIdentityFields({code, onCode, name, onName, onReady, onRetur
 export function RoomIdentity({state,hebrew=false}:{state:State;onChange?:(name:string)=>void;busy?:boolean;hebrew?:boolean}) {
  const t=hebrew?he:en,{room,me}=state;
  if(room.settings.participantMode!=='roster')return null;
- const unclaimed=room.settings.roster.filter(name=>!room.members.some(member=>member.name===name));
+ const joinedNames=new Set(room.members.map(member=>member.name)),unclaimed=room.settings.roster.filter(name=>!joinedNames.has(name));
  return <section className="panel room-identity"><div className="identity-heading"><LockKeyhole size={20}/><strong>{me.name} · {me.accountLinked?t.googleLocked:t.codeIdentity}</strong></div><p className="small muted">{me.accountLinked?t.googleIdentityNote:t.guestIdentityNote}</p>
   {room.phase==='lobby'&&<><div className="roster-claim-progress"><Check size={14}/>{room.members.length}/{room.settings.roster.length} {t.rosterProgress}</div>
-   {unclaimed.length>0&&<div className="unclaimed-roster"><span>{t.notJoined}</span>{unclaimed.map(name=><small key={name}>{name}</small>)}</div>}
+   {unclaimed.length>0&&<div className="unclaimed-roster"><span>{t.notJoined}</span>{unclaimed.slice(0,25).map(name=><small key={name}>{name}</small>)}{unclaimed.length>25&&<small>+{unclaimed.length-25}</small>}</div>}
   </>}
  </section>;
 }

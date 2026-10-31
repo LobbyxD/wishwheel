@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { AppError, hashToken, validToken } from './engine.mjs';
 import { roomService } from './service.mjs';
 
-export function createHandler(createStore,account=null) {
+export function createHandler(createStore,account=null,onMutation=null) {
  return async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store, max-age=0');
   res.setHeader('Vary','Authorization, Cookie');
@@ -30,6 +30,7 @@ export function createHandler(createStore,account=null) {
     if(validToken(token) && !await store.rate(`session:${input.action==='state'?'read':'write'}:${hashToken(token)}`,input.action==='state'?90:45,60)) throw new AppError('RATE_LIMITED','Too many requests. Please wait a minute.',429);
     if(input.action==='create' && !await store.rate(`create:${bucket}`,15,3600)) throw new AppError('RATE_LIMITED','Too many rooms created. Please try again later.',429);
     const result=await roomService(store,input,token,Date.now(),account);
+    if(onMutation&&!['state','preview'].includes(input.action))try{await onMutation(result,input);}catch{/* The committed result stays valid; clients retain a polling fallback. */}
     return res.status(200).json(result);
   } catch(error) {
     const expected=error instanceof AppError;

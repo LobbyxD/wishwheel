@@ -12,9 +12,12 @@ async function loadSource(path){
  const source=built.outputFiles[0].text.replace(/from "(react(?:\/[^" ]+)?|react-dom(?:\/[^" ]+)?|lucide-react)"/g,(_,name)=>`from ${JSON.stringify(import.meta.resolve(name))}`);
  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 }
-const {landedSlice,sliceSource,rectTransform}=await loadSource('../src/draw-motion.ts');
+const {fitSliceLabel,landedSlice,sliceSource,rectTransform}=await loadSource('../src/draw-motion.ts');
 const {nextActivity,publicPlayers}=await loadSource('../src/room-activity.ts');
 const {default:DrawReveal}=await loadSource('../src/DrawReveal.tsx');
+const {RosterFields}=await loadSource('../src/RosterFields.tsx');
+const {applyRoomEvent,reconcileState,settleRoomSpins}=await loadSource('../src/room-state.ts');
+const {useAccount,signInWithGoogle}=await loadSource('../src/auth.ts');
 
 test('landed slice geometry and fly-to-card transforms stay finite for every supported wheel size',()=>{
  for(let count=1;count<=100;count++){
@@ -72,15 +75,16 @@ test('first-result popup twirls to its back, vanishes the text, morphs and docks
  const finalAngle=Number(turn.frames.at(-1).transform.match(/rotateY\((\d+)deg/)[1]);
  assert.ok(finalAngle>1080);assert.equal(finalAngle%360,180);
  await finish(animations);
- assert.ok(document.querySelector('.draw-reveal').textContent.includes(secret));
+ assert.equal(document.querySelector('.result-ink').getAttribute('aria-label'),secret);
  await act(async()=>{document.querySelector('.draw-controls button').click();await tick();});
- assert.ok(animations.some(animation=>animation.element.matches('.result-ink span')&&animation.frames.at(-1).opacity===0));
- await finish(animations,animation=>animation.element.matches('.result-ink span'));
+ assert.ok(animations.some(animation=>animation.element.matches('.result-ink [data-ink]')&&animation.frames.at(-1).opacity===0));
+ await finish(animations,animation=>animation.element.matches('.result-ink [data-ink]'));
  assert.ok(document.querySelector('.draw-reveal').classList.contains('phase-docking'));
  assert.ok(!document.querySelector('.draw-reveal').textContent.includes(secret));
  assert.equal(document.querySelector('[data-destination]').dataset.scrolled,'true');
  assert.ok(animations.some(animation=>animation.element.matches('.slice-back')&&animation.frames[0].clipPath!==animation.frames[1].clipPath));
  await finish(animations);
+ const returning=animations.filter(animation=>animation.element.matches('.draw-flipper'));assert.equal(returning.length,2);assert.notEqual(returning[1].frames[0].transform,returning[1].frames[1].transform);
  assert.equal(docked,1);assert.equal(document.querySelector('.draw-reveal'),null);
  assert.equal(document.getElementById('root').inert,false);
  assert.equal(document.querySelector('[data-destination] span').getAttribute('aria-hidden'),'true');
@@ -93,7 +97,7 @@ test('Escape can skip the twirl and reduced motion completes without animated tr
  assert.ok(!document.querySelector('.draw-reveal').textContent.includes(secret));
  await finish(animations);assert.equal(docked,1);
  await act(async()=>{root.render(null);await tick();root.render(fixture(()=>docked++,true));await tick();});
- assert.ok(document.querySelector('.draw-reveal').textContent.includes(secret));
+ assert.equal(document.querySelector('.result-ink').getAttribute('aria-label'),secret);
  const start=animations.length;
  await act(async()=>{document.querySelector('.draw-controls button').click();await tick();await tick();});
  assert.equal(docked,2);assert.ok(animations.slice(start).every(animation=>animation.options.duration===0));
@@ -129,4 +133,54 @@ test('server exposes spin timing to spectators without the chosen item or landin
  assert.equal(bob.status,'picking');assert.equal(bob.spinStartedAt,1000);assert.equal(bob.spinEndsAt,7000);
  assert.equal(state.room.serverNow,2000);assert.equal(state.me.result,null);
  assert.ok(!JSON.stringify(bob).match(/result|itemId|angle|label|Private/));
+});
+
+test('long names, Hebrew and unbroken results fit inside the slice without scroll containers',()=>{
+ for(const value of ['Daniel','A'.repeat(80),'A beautifully wrapped and wonderfully unexpected secret Christmas surprise','דניאל וההפתעה הסודית הארוכה שנשארת תמיד בתוך הפלישה']){
+  const label=fitSliceLabel(value);
+  assert.ok(label.lines.every(line=>line.width<=420));assert.ok(label.lines.length*label.fontSize*1.2<=230);
+  assert.equal(label.lines.map(line=>line.text).join('').replace(/\s/g,''),value.replace(/\s/g,''));
+ }
+});
+
+test('guest fields grow beyond fifty, add focuses the new field, and removing keeps the remaining people',async t=>{
+ const {document,root}=dom(t);
+ function Form(){const [names,setNames]=useState(Array.from({length:55},(_,index)=>`Person ${index+1}`));return React.createElement(RosterFields,{settings:{participantMode:'roster'},names,onNames:setNames,onMode(){}});}
+ await act(async()=>{root.render(React.createElement(Form));await tick();});
+ assert.equal(document.querySelectorAll('.roster-inputs input').length,55);assert.equal(document.querySelector('textarea'),null);
+ await act(async()=>{document.querySelector('.add-person').click();await tick();});
+ assert.equal(document.querySelectorAll('.roster-inputs input').length,56);assert.equal(document.activeElement,document.querySelectorAll('.roster-inputs input')[55]);
+ await act(async()=>{document.querySelector('.roster-input-row button').click();await tick();});
+ assert.equal(document.querySelectorAll('.roster-inputs input').length,55);assert.equal(document.querySelector('.roster-inputs input').value,'Person 2');
+});
+
+test('live public updates paint membership and spins immediately without overwriting private results or newer rounds',()=>{
+ const state={room:{code:'AB23CD',version:1,generation:1,phase:'active',members:[{id:'me',name:'Alice',status:'waiting'}]},me:{id:'me',name:'Alice',status:'waiting',result:null}};
+ const joined=applyRoomEvent(state,{type:'room-changed',code:'AB23CD',version:2,generation:1,phase:'active',kind:'join',serverNow:100,member:{id:'bob',name:'Bob',status:'waiting',result:{label:'DO NOT COPY'}}});
+ assert.equal(joined.room.members.length,2);assert.equal(joined.room.members[1].result,undefined);
+ const spinning=applyRoomEvent(joined,{type:'room-changed',code:'AB23CD',version:3,generation:1,phase:'active',kind:'spin',serverNow:200,member:{id:'bob',name:'Bob',status:'picking',spinStartedAt:200,spinEndsAt:6200}});
+ assert.equal(spinning.room.members[1].status,'picking');assert.equal(spinning.me.result,null);
+ const latePrivate={...state,room:{...state.room,version:2},me:{...state.me,result:{id:'gift',label:'My own secret'}}};
+ const reconciled=reconcileState(spinning,latePrivate);assert.equal(reconciled.room.version,3);assert.equal(reconciled.room.members.length,2);assert.equal(reconciled.me.result.label,'My own secret');
+ const reset=applyRoomEvent(reconciled,{type:'room-changed',code:'AB23CD',version:4,generation:2,phase:'lobby',kind:'reset',serverNow:300});
+ assert.equal(reset.me.result,null);assert.equal(reconcileState(reset,latePrivate),null);
+});
+
+test('simultaneous live spins remain visible when messages arrive out of order, and turns settle without another API request',()=>{
+ const state={room:{code:'AB23CD',version:3,generation:1,phase:'active',serverNow:100,settings:{turnBased:true},turnOrder:['bob','carol','me'],turnMemberId:'bob',members:[{id:'me',name:'Alice',status:'waiting'},{id:'bob',name:'Bob',status:'waiting'},{id:'carol',name:'Carol',status:'waiting'}]},me:{id:'me',status:'waiting',result:null}};
+ const bob={type:'room-changed',code:'AB23CD',version:4,generation:1,phase:'active',serverNow:200,kind:'spin',member:{id:'bob',name:'Bob',status:'picking',spinStartedAt:200,spinEndsAt:6200}};
+ const carol={...bob,version:5,serverNow:300,member:{id:'carol',name:'Carol',status:'picking',spinStartedAt:300,spinEndsAt:6300}};
+ const both=applyRoomEvent(applyRoomEvent(state,carol),bob);assert.equal(both.room.version,5);assert.equal(both.room.members.filter(member=>member.status==='picking').length,2);
+ assert.equal(applyRoomEvent(both,bob),null);
+ const next=settleRoomSpins(both,6400);assert.equal(next.room.turnMemberId,'me');assert.equal(next.room.members.filter(member=>member.status==='picked').length,2);assert.equal(next.me.result,null);
+});
+
+test('Google sign-in publishes the verified account immediately without an extra profile request',async t=>{
+ const {document,root}=dom(t),previousFetch=globalThis.fetch,calls=[];
+ t.after(()=>{globalThis.fetch=previousFetch;});
+ globalThis.fetch=async(url,options={})=>{calls.push({url,method:options.method||'GET'});return Response.json(options.method==='POST'?{user:{id:'google:fast',provider:'google',name:'Alice',email:''}}:{user:null,clientId:'public-client',nonce:'A'.repeat(43)});};
+ function Account(){const account=useAccount();return React.createElement('p',{id:'account-name'},account.user?.name||'Guest');}
+ await act(async()=>{root.render(React.createElement(Account));await tick();});calls.length=0;
+ await act(async()=>{await signInWithGoogle('signed-test-credential');await tick();});
+ assert.equal(document.getElementById('account-name').textContent,'Alice');assert.equal(calls.length,1);assert.equal(calls[0].method,'POST');
 });

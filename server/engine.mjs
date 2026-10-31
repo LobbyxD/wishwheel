@@ -31,12 +31,12 @@ export function cleanSettings(value = {}) {
   if (!['open','roster'].includes(participantMode)) fail('INVALID_ROSTER','Choose an open room or a prelisted guest room.');
   let roster = [];
   if (participantMode === 'roster') {
-    if (!Array.isArray(value.roster) || value.roster.length < 2 || value.roster.length > 50) fail('INVALID_ROSTER','List 2–50 people, including yourself.');
+    if (!Array.isArray(value.roster) || value.roster.length < 2) fail('INVALID_ROSTER','List at least two people, including yourself.');
     roster = value.roster.map(cleanName);
     if (new Set(roster.map(normalize)).size !== roster.length) fail('INVALID_ROSTER','Each person in the guest list needs a unique name.');
   }
   const maxMembers = participantMode === 'roster' ? roster.length : Number(value.maxMembers ?? 12);
-  if (!Number.isInteger(maxMembers) || maxMembers < 2 || maxMembers > 50) fail('INVALID_SETTINGS', 'Choose a room limit from 2 to 50.');
+  if (!Number.isSafeInteger(maxMembers) || maxMembers < 2) fail('INVALID_SETTINGS', 'Choose a room limit of at least two.');
   const poolMode = value.poolMode ?? 'names';
   if (!['names', 'custom', 'mixed'].includes(poolMode)) fail('INVALID_SETTINGS', 'Choose names or a custom list.');
   let items = [];
@@ -131,11 +131,35 @@ export const eligible = (member,item) => member.id !== item.memberId && normaliz
 // unlike sequential rejection sampling, which can strand the last participant.
 export function matchAssignments(members, items, removePicked, random = randomInt) {
   const order = shuffle(members,random); const assignments = {};
+  // Rooms containing everyone's names can use a shuffled cycle: linear memory/time and no
+  // recursive matching depth, even for guest lists far larger than fifty.
+  const byMember=new Map(items.filter(item=>item.memberId).map(item=>[item.memberId,item]));
+  if(removePicked&&members.length>1&&byMember.size>=members.length&&order.every(member=>byMember.has(member.id)&&normalize(byMember.get(member.id).label)===normalize(member.name))){
+    const chosen=order.map((_,index)=>byMember.get(order[(index+1)%order.length].id));
+    // Mixed pools keep the feasible cycle, then admit custom items through
+    // randomized valid replacements/swaps without building a quadratic graph.
+    if(items.length>members.length){
+      const holders=new Map(chosen.map((item,index)=>[item.id,index]));
+      for(const item of shuffle(items,random)){
+        let index=random(order.length);if(!eligible(order[index],item))index=(index+1)%order.length;
+        if(!eligible(order[index],item))continue;
+        const other=holders.get(item.id),previous=chosen[index];
+        if(other===index||other!==undefined&&!eligible(order[other],previous))continue;
+        if(other!==undefined){chosen[other]=previous;holders.set(previous.id,other);}else holders.delete(previous.id);
+        chosen[index]=item;holders.set(item.id,index);
+      }
+    }
+    for(let index=0;index<order.length;index++)assignments[order[index].id]={itemId:chosen[index].id,pickedAt:null,pickingUntil:null};
+    return assignments;
+  }
   if (!removePicked) {
+    const byLabel=new Map(),byOwner=new Map();
+    items.forEach((item,index)=>{const label=normalize(item.label);if(!byLabel.has(label))byLabel.set(label,[]);byLabel.get(label).push(index);if(item.memberId){if(!byOwner.has(item.memberId))byOwner.set(item.memberId,[]);byOwner.get(item.memberId).push(index);}});
     for (const member of order) {
-      const choices = items.filter(item => eligible(member,item));
-      if (!choices.length) fail('IMPOSSIBLE_DRAW','Every participant needs at least one eligible item. Add more items.',409);
-      assignments[member.id] = {itemId:choices[random(choices.length)].id,pickedAt:null,pickingUntil:null};
+      const blocked=[...new Set([...(byLabel.get(normalize(member.name))||[]),...(byOwner.get(member.id)||[])])].sort((a,b)=>a-b);
+      if(items.length===blocked.length)fail('IMPOSSIBLE_DRAW','Every participant needs at least one eligible item. Add more items.',409);
+      let index=random(items.length-blocked.length);for(const unavailable of blocked)if(index>=unavailable)index++;
+      assignments[member.id] = {itemId:items[index].id,pickedAt:null,pickingUntil:null};
     }
     return assignments;
   }
@@ -192,7 +216,8 @@ export function mutateRoom(room, action, tokenHash, generation, now = Date.now()
     }
     if (room.phase !== 'lobby') return room;
     if (room.members.length < 2) fail('NEED_PLAYERS','Invite at least one other person before starting.',409);
-    if(room.settings.participantMode==='roster'&&room.settings.roster.some(name=>!room.members.some(person=>normalize(person.name)===normalize(name))))fail('ROSTER_INCOMPLETE','Wait until everyone on the guest list has claimed their place.',409);
+    const joinedNames=new Set(room.members.map(person=>normalize(person.name)));
+    if(room.settings.participantMode==='roster'&&room.settings.roster.some(name=>!joinedNames.has(normalize(name))))fail('ROSTER_INCOMPLETE','Wait until everyone on the guest list has claimed their place.',409);
     room.items=buildPool(room); room.assignments=matchAssignments(room.members,room.items,room.settings.removePicked);
     room.turnOrder=shuffle(room.members.map(person=>person.id)); room.phase='active'; return room;
   }
@@ -229,25 +254,27 @@ function personalCodeHash(room,code){return hashToken(`wishwheel-person:${room.i
 export function ensureInvitations(room){
   if(room.settings.participantMode!=='roster'||Array.isArray(room.invitationSlots))return false;
   room.inviteSalt=newToken();
+  const byName=new Map(room.members.map(member=>[normalize(member.name),member]));
   room.invitationSlots=room.settings.roster.map(name=>{
-    const member=room.members.find(person=>normalize(person.name)===normalize(name)),id=randomUUID();
+    const member=byName.get(normalize(name)),id=randomUUID();
     if(member)member.slotId=id;
     return {id,name,codeHash:null,accountId:member?.accountId||null,issuedAt:null};
   });return true;
 }
-function invitationDetails(room){return (room.invitationSlots||[]).map(slot=>({id:slot.id,name:slot.name,hasCode:!!slot.codeHash,accountLinked:!!slot.accountId,claimed:room.members.some(member=>member.slotId===slot.id)}));}
+function invitationDetails(room){const claimed=new Set(room.members.map(member=>member.slotId));return (room.invitationSlots||[]).map(slot=>({id:slot.id,name:slot.name,hasCode:!!slot.codeHash,accountLinked:!!slot.accountId,claimed:claimed.has(slot.id)}));}
 export function issueInvitationCodes(room,tokenHash,account=null,slotId=null,now=Date.now()){
   const me=requireMember(room,tokenHash,account);if(me.id!==room.ownerId)fail('OWNER_ONLY','Only the host can issue private codes.',403);
   ensureInvitations(room);
   if(!room.invitationSlots)fail('INVALID_ROSTER','Private person codes are available for prelisted rooms.');
   if(slotId&&!room.invitationSlots.some(slot=>slot.id===slotId))fail('INVALID_MEMBER','Choose a listed person.');
-  const issued=[];
+  const issued=[],hashes=new Set(room.invitationSlots.map(slot=>slot.codeHash)),membersBySlot=new Map(room.members.map(member=>[member.slotId,member]));
   for(const slot of room.invitationSlots){
     if(slotId?slot.id!==slotId:!!slot.codeHash)continue;
     const old=slot.codeHash;let code,hash;
-    do{code=newCode();hash=personalCodeHash(room,code);}while(hash===old||room.invitationSlots.some(person=>person.codeHash===hash));
+    do{code=newCode();hash=personalCodeHash(room,code);}while(hash===old||hashes.has(hash));
+    hashes.add(hash);
     slot.codeHash=hash;slot.issuedAt=now;
-    const member=room.members.find(person=>person.slotId===slot.id);
+    const member=membersBySlot.get(slot.id);
     if(old&&member&&member.id!==room.ownerId){
       room.replacedTokenHashes=[...new Set([...(room.replacedTokenHashes||[]),member.tokenHash])];
       member.tokenHash=hashToken(newToken());

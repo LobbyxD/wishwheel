@@ -1,6 +1,7 @@
 // Explicit local-only integration harness. Not imported by production API.
 // Start: WISHWHEEL_TEST_MODE=1 node server/dev.mjs
 import http from 'node:http';
+import {attachLocalLive} from './local-live.mjs';
 import {fileURLToPath} from 'node:url';
 import {LocalFileStore} from './local-store.mjs';
 import {handleAuth,readAccount} from './google-auth.mjs';
@@ -31,7 +32,7 @@ if(process.env.WISHWHEEL_QA_FIXTURES==='1') {
 
 const server=http.createServer(async(req,res)=>{
  res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
- if(!req.url.startsWith('/api/room')&&!req.url.startsWith('/api/auth/')){res.writeHead(404);res.end('{}');return;}
+ if(!req.url.startsWith('/api/room')&&!req.url.startsWith('/api/auth/')&&!req.url.startsWith('/api/live-ticket')){res.writeHead(404);res.end('{}');return;}
  try {
   let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>450000)throw new AppError('TOO_LARGE','Too large',413);}
   const webRequest=new Request(`http://${req.headers.host||'127.0.0.1:3001'}${req.url}`,{method:req.method,headers:Object.fromEntries(Object.entries(req.headers).filter(([,value])=>typeof value==='string')),...(req.method!=='GET'&&req.method!=='HEAD'?{body:raw}:{})});
@@ -48,13 +49,15 @@ const server=http.createServer(async(req,res)=>{
   const input=req.method==='GET'?{action:'state',code:url.searchParams.get('code')}:JSON.parse(raw);
   const token=req.headers.authorization?.replace(/^Bearer /,'');
   const account=await readAccount(webRequest,store);
-  const result=await roomService(store,input,token,Date.now(),account);res.writeHead(200);res.end(JSON.stringify(result));
+  if(req.url.startsWith('/api/live-ticket')){const state=await roomService(store,{action:'state',code:input.code},token,Date.now(),account);res.writeHead(200);res.end(JSON.stringify(live.issue(state)));return;}
+  const result=await roomService(store,input,token,Date.now(),account);if(!['state','preview'].includes(input.action))live.notify(result,input);res.writeHead(200);res.end(JSON.stringify(result));
  }catch(error){
   const expected=error instanceof AppError;
   if(!expected)console.error('Local room request failed:',error.message);
   res.writeHead(expected?error.status:500);res.end(JSON.stringify({error:{code:expected?error.code:'SERVICE_UNAVAILABLE',message:expected?error.message:'Local room storage is unavailable. Check the server console.'}}));
  }
 });
+const live=attachLocalLive(server);
 server.on('error',error=>{
  if(error.code==='EADDRINUSE'){
   console.log('API port 3001 is busy; choosing an available local port.');

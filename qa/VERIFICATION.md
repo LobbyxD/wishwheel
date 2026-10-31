@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-31. This describes checks actually performed, not an assertion of live production readiness.
 
+## 2026-10-31: expandable guests, floating reveal and live room updates
+
+Release checks: all 96 tests pass, including the actual Cloudflare runtime and local Vite WebSocket proxy; TypeScript/Vite production build passes. Worker version `91fe1032-d473-461c-a2c2-829856c60c32` is deployed with the SQLite notification binding. A temporary production probe measured join/spin notifications at 415/411 ms respectively, confirmed no result was broadcast, and accepted a capacity of 1,000. Only that new, explicitly marked probe room was removed afterward. These measurements are one network smoke test, not a general latency or capacity guarantee.
+
+- Guest creation now uses individual Add another/remove fields without the old 50-person cap. Tests render more than fifty fields and exercise complete, non-self matching for 10,000 people in names/mixed pools with and without unique picks. This tests the matching engine, not a claim of 10,000 hosted concurrent users.
+- The opaque reveal panel is removed. The slice grows while twirling, reveals fitted SVG text on its back, vaporizes the text, then spins again while morphing/docking into the hidden result card. DOM tests cover long unbroken results and Hebrew; no result text uses a scroll container.
+- Live room notifications run through authenticated, single-use tickets and a hibernating SQLite Durable Object. The real workerd/Miniflare test covers upgrade, ticket reuse rejection, immediate join/spin events and reset. A second integration test exercises the real local Vite WebSocket proxy. Google locks are enforced at ticket issuance.
+- Client tests cover immediate public state, stale-response reconciliation, independent events delivered out of order, locally timed turn completion, and preservation of private results. Returning Google users no longer wait for profile/preview requests in sequence.
+- Browser surfaces remain unavailable. DOM/runtime checks do not verify final GPU appearance, Safari compositing or real Google browser login.
+
 ## 2026-10-31: latest source, animated reveals and private accounts
 
 Release follow-up: the Google OAuth client ID is now configured. Remote migration checks report no pending migrations, and the production D1 database contains `wishwheel_google_sessions`. The Worker was deployed successfully as version `4306146c-a1b1-457c-93c4-2a321cc2326c`. Its live auth session endpoint returns HTTP 200 with the configured public client ID, an anonymous user and an HttpOnly/Secure nonce cookie; an invalid Google credential is rejected with HTTP 401. All 88 tests and the production frontend build pass before the authorized push to `main`. A real Google account browser sign-in remains unverified.

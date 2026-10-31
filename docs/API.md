@@ -26,11 +26,11 @@ Private recovery links must put token in URL fragment, never query/path. Remove 
 
 ## Settings
 
-`title` 1–60 chars; `maxMembers` 2–50; `poolMode` `names|custom|mixed`; `items` 2–100 unique 1–80 character labels in custom/mixed; `removePicked`, `turnBased`, `wheelHidden`, `musicEnabled` booleans; `coverType` color/image; `coverColor` hex; `coverImage` bundled local PNG/JPG/WebP path or data URL up to ~300KB.
+`title` 1–60 chars; `maxMembers` any safe integer of at least 2; `poolMode` `names|custom|mixed`; `items` 2–100 unique 1–80 character labels in custom/mixed; `removePicked`, `turnBased`, `wheelHidden`, `musicEnabled` booleans; `coverType` color/image; `coverColor` hex; `coverImage` bundled local PNG/JPG/WebP path or data URL up to ~300KB.
 
 `excludeSelf` always true; it cannot be disabled. Name matching uses Unicode NFKC, trim, space collapse, and lowercase. Duplicate member names or custom labels are rejected. Mixed mode unions custom items with member names, prioritizing linked member-name entries and deduplicating matching custom labels.
 
-`participantMode` is `open` by default or `roster`. A roster contains 2–50 unique cleaned names, includes the creator, and sets capacity to its length. A roster room cannot start until every listed name is claimed; concurrent claims are protected by the existing CAS retry. Prelisted identities remain immutable after reset. Per-person code hashes and Google bindings live in the existing room JSON. The separate Google session table requires migration `0002_google_sessions.sql`.
+`participantMode` is `open` by default or `roster`. A roster contains at least two unique cleaned names, includes the creator, and sets capacity to its length. A roster room cannot start until every listed name is claimed; concurrent claims are protected by the existing CAS retry. Prelisted identities remain immutable after reset. Per-person code hashes and Google bindings live in the existing room JSON. The separate Google session table requires migration `0002_google_sessions.sql`.
 
 ## Response
 
@@ -84,3 +84,13 @@ Worker GET `/api/auth/session` supplies a nonce and public client ID. POST `/api
 The public room projection includes `serverNow` and member `spinStartedAt`/`spinEndsAt`, with null values before a spin. No selected item, slice index or landing angle is included. Spectators use generic wheel rotation and sealed-gift effects, and can celebrate spins completed between polling ticks. Every visible active-room member polls at 5 seconds, including members who already picked; other phases retain 15-second polling, and hidden tabs pause. This increases active-room reads and rate-counter writes for finished players compared with the earlier 15-second polling. Free quotas still apply.
 
 The owner's popup is client-only and starts on a fresh successful spin; revisiting a saved result does not replay it. The popup disappears on reset/navigation, and closing vanishes the text before moving a blank card into the hidden result area. Reduced motion skips travel/rotation. See [animation QA](DRAW-EXPERIENCE.md).
+
+## Live updates and expanded guest lists
+
+The 50-person application cap is removed. Prelisted people are entered as individual fields with Add another/remove controls. Capacity follows the nonblank roster. Request size, D1 row size, client memory and provider quotas remain practical bounds; this is not a promise of unbounded physical capacity. Large name/mixed draws use a linear feasible cycle with randomized valid swaps for custom items, rather than a quadratic matching graph. Custom-only matching retains the general matching algorithm.
+
+POST `/api/live-ticket` authenticates exactly like private state and issues a single-use 60-second subscription ticket. Production frontend path: `/api/wishwheel/live-ticket`. Connect directly to Worker `/api/live?code=ROOM` with WebSocket subprotocols `wishwheel-v1` and the ticket. Private room capabilities and Google credentials never enter URLs. `RoomLive` uses a SQLite-backed Durable Object with hibernating sockets; configure the committed `room-live-v1` migration and `ROOM_LIVE` binding when deploying.
+
+Notifications contain only the room code, generation/revision, phase, public actor name/status and spin timing. No result, assignment, private code, account ID or landing angle is broadcast. Changes are published after database commit; a notification failure cannot roll back the committed action. Removed/replaced guests lose their socket, and reconnects must reauthenticate.
+
+Clients paint public events immediately and reconcile authoritative private state. Spin completion advances locally from server timing. Reconnect/visibility changes resync the room; a 30-second safety refresh runs when connected, with a 2-second fallback when disconnected. Non-spin changes coalesce state refreshes to at most once per second. This replaces the older 5/15-second polling described above. Google room restoration starts alongside account-profile loading, and successful sign-in reuses the verified account returned by the login endpoint.

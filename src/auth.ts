@@ -20,8 +20,8 @@ export function useAccount(){
  useEffect(()=>{listeners.add(setValue);setValue(state);initializing??=refreshAccount();return()=>{listeners.delete(setValue);};},[]);
  return value;
 }
-export async function signInWithGoogle(credential:string){await authRequest('google',credential);await refreshAccount();}
-export async function continueAsGuest(){await authRequest('logout');window.google?.accounts.id.disableAutoSelect();localStorage.setItem('ww.loginChoice','guest');await refreshAccount();}
+export async function signInWithGoogle(credential:string){const body=await authRequest('google',credential);publish({...state,loading:false,user:body.user,unavailable:false});}
+export async function continueAsGuest(){await authRequest('logout');window.google?.accounts.id.disableAutoSelect();localStorage.setItem('ww.loginChoice','guest');publish({...state,loading:false,user:null});void refreshAccount();}
 
 type GoogleAccounts={accounts:{id:{initialize(options:{client_id:string;nonce:string;callback:(response:{credential:string})=>void;auto_select:boolean;use_fedcm_for_button:boolean}):void;renderButton(element:HTMLElement,options:{theme:string;size:string;text:string;shape:string;width:number}):void;disableAutoSelect():void}}};
 declare global{interface Window{google?:GoogleAccounts}}

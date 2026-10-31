@@ -1,13 +1,32 @@
 export const WHEEL_SPIN_MS=4800;
-export const DRAW_REVEAL_MS=6000;
+export const DRAW_REVEAL_MS=5000;
 
 export type Rect={left:number;top:number;width:number;height:number};
 type Point={x:number;y:number};
 
+export function fitSliceLabel(label:string,width=420,height=230){
+ const segmenter=typeof Intl.Segmenter==='function'?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null;
+ const glyphs=(text:string)=>segmenter?[...segmenter.segment(text)].map(part=>part.segment):Array.from(text);
+ const words=label.split(/\s+/).map(glyphs);
+ for(let fontSize=110;fontSize>=12;fontSize--){
+  const capacity=Math.max(1,Math.floor(width/(fontSize*.68))),lines:string[]=[];
+  let line='';
+  for(const word of words){
+   const letters=[...word];
+   if(line&&Array.from(line).length+letters.length+1>capacity){lines.push(line);line='';}
+   while(letters.length>capacity){if(line){lines.push(line);line='';}lines.push(letters.splice(0,capacity).join(''));}
+   if(letters.length)line+=(line?' ':'')+letters.join('');
+  }
+  if(line)lines.push(line);
+  if(lines.length*fontSize*1.2<=height||fontSize===12)return {fontSize,lines:lines.map(text=>({text,width:Math.min(width,[...text].length*fontSize*.68)}))};
+ }
+ return {fontSize:12,lines:[{text:label,width}]};
+}
+
 // The landed slice faces twelve o'clock. Normalize its actual outline so the
 // extracted piece can grow without losing the wheel's image crop or geometry.
 export function landedSlice(count:number){
- const size=Math.max(1,Math.min(100,Math.floor(count)||1)),half=Math.PI/size;
+ const size=Math.max(1,Math.floor(count)||1),half=Math.PI/size;
  const points:Point[]=size===1?[]:[{x:200,y:200}];
  for(let index=0;index<=64;index++){
   const angle=-Math.PI/2-half+index/64*half*2;

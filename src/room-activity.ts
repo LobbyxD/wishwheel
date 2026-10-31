@@ -15,7 +15,7 @@ export function nextActivity(previous:PublicPlayer[]|null,current:PublicPlayer[]
   return person.spinStartedAt!=null?before?.spinStartedAt!==person.spinStartedAt:before?.status==='waiting';
  });
  if(!changed.length)return null;
- const picking=changed.filter(person=>person.status==='picking');
+ const picking=current.filter(person=>person.id!==me&&person.status==='picking');
  const actors=picking.length?picking:changed;
  return {key:actors.map(person=>`${person.id}:${person.spinStartedAt??person.status}`).join('|'),people:actors.map(person=>person.name),phase:picking.length?'picking':'celebrating',remaining:Math.max(0,...actors.map(person=>person.spinEndsAt!=null?person.spinEndsAt-serverNow:5000))};
 }

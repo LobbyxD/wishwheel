@@ -15,21 +15,21 @@ export async function roomService(store,input,token,now=Date.now(),account=null)
  token=token||(['create','join'].includes(action)?newToken():null);
  if(!validToken(token)&&!account)fail('SESSION_REQUIRED','Use your saved room session or private recovery link.',401);
  const tokenHash=validToken(token)?hashToken(token):'';
- const view=state=>serializeRoom(state,tokenHash,now,account);
+ const view=(state,revision)=>{const result=serializeRoom(state,tokenHash,now,account);result.room.version=revision;return result;};
  if(action==='create'){
   cleanName(input.name);cleanSettings(input.settings);
   const existing=await store.byOwner(tokenHash);
-  if(existing){const result=view(existing.state);return {...result,token,me:{...result.me,token}};}
+  if(existing){const result=view(existing.state,existing.revision);return {...result,token,me:{...result.me,token}};}
   for(let attempt=0;attempt<6;attempt++){
    const state=createRoom(input.name,input.settings,tokenHash,undefined,now,account);
    const inviteCodes=state.settings.participantMode==='roster'?issueInvitationCodes(state,tokenHash,account,null,now):[];
    try{
-    await store.insert(state,tokenHash);const result=view(state);
+    await store.insert(state,tokenHash);const result=view(state,1);
     return {...result,token,me:{...result.me,token},...(inviteCodes.length?{inviteCodes}:{})};
    }catch(error){
     if(error.code!=='CONFLICT')throw error;
     const recovered=await store.byOwner(tokenHash);
-    if(recovered){const result=view(recovered.state);return {...result,token,me:{...result.me,token}};}
+    if(recovered){const result=view(recovered.state,recovered.revision);return {...result,token,me:{...result.me,token}};}
    }
   }fail('BUSY','Please try creating the room again.',503);
  }
@@ -37,7 +37,7 @@ export async function roomService(store,input,token,now=Date.now(),account=null)
   const record=await store.read(code);if(!record)fail('ROOM_NOT_FOUND','No room found with that code.',404);
   const state=structuredClone(record.state);
   const migrated=ensureInvitations(state),linked=bindAccount(state,tokenHash,account);
-  if(action==='state'&&!migrated&&!linked)return view(state);
+  if(action==='state'&&!migrated&&!linked)return view(state,record.revision);
   let inviteCodes=[];
   if(action==='join')joinRoom(state,input.name,tokenHash,now,input.inviteCode,account);
   else if(action==='issue-invites'||action==='regenerate-invite'){
@@ -45,7 +45,7 @@ export async function roomService(store,input,token,now=Date.now(),account=null)
    inviteCodes=issueInvitationCodes(state,tokenHash,account,action==='regenerate-invite'?input.slotId:null,now);
   }else if(action!=='state')mutateRoom(state,action,tokenHash,input.generation,now,input,account);
   if(await store.cas(code,record.revision,state)){
-   const result=view(state);
+   const result=view(state,record.revision+1);
    return {...result,...(action==='join'?{token,me:{...result.me,token}}:{}),...(inviteCodes.length?{inviteCodes}:{})};
   }
   await new Promise(resolve=>setTimeout(resolve,Math.min(attempt*7,50)));

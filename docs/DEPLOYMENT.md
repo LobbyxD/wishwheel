@@ -49,3 +49,9 @@ References: [Workers limits](https://developers.cloudflare.com/workers/platform/
 ## Google sign-in activation
 
 Set the public `GOOGLE_CLIENT_ID` in `wrangler.jsonc`, register the website origin in Google Cloud, apply migrations before deploying the Worker, then deploy the updated Vercel frontend. No client secret is needed. See [Google sign-in setup](GOOGLE-SIGN-IN.md). Guest access remains available without Google configuration.
+
+## Live room notifications
+
+Deploy the root Wrangler configuration, including the `ROOM_LIVE` binding and `room-live-v1` migration with `new_sqlite_classes`. Wrangler creates the notification namespace while retaining the existing D1 database. The browser uses HTTPS through Vercel to request a private subscription ticket, then WSS directly to the Worker. Keep the committed `wss://wishwheel.daniel1233212.workers.dev` CSP entry. Local `npm run dev` provides the same ticket/event protocol through a Node WebSocket server and Vite proxy.
+
+SQLite-backed Durable Objects are available on Workers Free; no paid-plan change is required. Provider quotas still apply. References: [Cloudflare overview](https://developers.cloudflare.com/durable-objects/), [hibernating WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).

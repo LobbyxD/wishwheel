@@ -4,6 +4,7 @@ import net from 'node:net';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {fileURLToPath} from 'node:url';
+import WebSocket from 'ws';
 
 test('dev startup handles a busy API port, proxies requests, and releases its ports', {timeout:30000}, async t=>{
  const blocker=net.createServer();
@@ -59,7 +60,16 @@ test('dev startup handles a busy API port, proxies requests, and releases its po
   body:JSON.stringify({action:'create',name:'Startup Test',settings:{title:'Port fallback test'}})
  });
  assert.equal(response.status,200);
- assert.equal((await response.json()).room.settings.title,'Port fallback test');
+ const created=await response.json();assert.equal(created.room.settings.title,'Port fallback test');
+ const subscription=await fetch(`${base}/api/live-ticket`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${created.token}`},body:JSON.stringify({code:created.room.code})});
+ assert.equal(subscription.status,200);const ticket=(await subscription.json()).ticket;
+ const live=new WebSocket(`${base.replace('http:','ws:')}/api/live?code=${created.room.code}`,['wishwheel-v1',ticket],{headers:{Origin:base}});
+ t.after(()=>live.close());await once(live,'open');
+ const notice=once(live,'message');
+ const joined=await fetch(`${base}/api/room`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'join',code:created.room.code,name:'Live Guest'})});
+ assert.equal(joined.status,200);const [message]=await notice;const event=JSON.parse(message.toString());
+ assert.equal(event.kind,'join');assert.equal(event.member.name,'Live Guest');assert.ok(!('result' in event.member));
+ live.close();await once(live,'close');
  child.disconnect();
  const [code]=await exited;
  assert.equal(code,0,output);

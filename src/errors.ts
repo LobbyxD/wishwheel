@@ -7,7 +7,7 @@ Object.assign(errorMessages,{
  SESSION_REPLACED:'החיבור הפרטי הוחלף. יש להיכנס שוב עם הקוד האישי העדכני.',
  GOOGLE_SIGN_IN_FAILED:'לא ניתן לאמת את הכניסה עם Google. יש לנסות שוב.',
  AUTH_NOT_CONFIGURED:'הכניסה עם Google עדיין אינה מוגדרת. אפשר להמשיך כאורח.',
- INVALID_ROSTER:'יש להזין 2–50 שמות שונים ולכלול גם את המארח.',
+ INVALID_ROSTER:'יש להזין לפחות שני שמות שונים ולכלול גם את המארח.',
  NOT_LISTED:'יש לבחור את השם שלך מהרשימה של המארח.',
  IDENTITY_LOCKED:'הזהות שלך נעולה עד לאיפוס החדר.',
  ROSTER_INCOMPLETE:'ממתינים לכל האנשים שברשימה שיבחרו את מקומם.',

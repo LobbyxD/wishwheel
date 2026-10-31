@@ -4,3 +4,5 @@
 // It also avoids the older /api/room setup-guard function.
 export const apiEndpoint = import.meta.env?.DEV ? '/api/room' : '/api/wishwheel/room';
 export const authEndpoint = import.meta.env?.DEV ? '/api/auth' : '/api/wishwheel/auth';
+export const liveTicketEndpoint = import.meta.env?.DEV ? '/api/live-ticket' : '/api/wishwheel/live-ticket';
+export const liveSocketEndpoint = import.meta.env?.DEV ? null : 'wss://wishwheel.daniel1233212.workers.dev/api/live';
