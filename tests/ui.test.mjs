@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {buildSync} from 'esbuild';
 import {createElement, Fragment} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {createRoom, joinRoom, mutateRoom, serializeRoom, hashToken, newToken, cleanSettings} from '../server/engine.mjs';
+import {createRoom, joinRoom, mutateRoom, serializeRoom, hashToken, newToken, cleanSettings, issueInvitationCodes} from '../server/engine.mjs';
 
 // Compile the actual TSX components in memory and share React with the renderer.
 async function loadSource(path) {
@@ -270,13 +270,13 @@ test('room library renders all saved rooms, backup controls and role labels',()=
 });
 
 test('kick controls appear only for the host and roster identities show the correct lock state',()=>{
- const token=newToken(),other=newToken(),room=createRoom('Alice',{participantMode:'roster',roster:['Alice','Bob']},hashToken(token));joinRoom(room,'Bob',hashToken(other));
+ const token=newToken(),other=newToken(),room=createRoom('Alice',{participantMode:'roster',roster:['Alice','Bob']},hashToken(token));joinRoom(room,'Bob',hashToken(other),Date.now(),issueInvitationCodes(room,hashToken(token)).find(person=>person.name==='Bob').code);
  const host=serializeRoom(room,hashToken(token)),guest=serializeRoom(room,hashToken(other));
  const hostHTML=renderToStaticMarkup(createElement(GuestList,{state:host,onRefresh(){},onKick:async()=>true}));
  const guestHTML=renderToStaticMarkup(createElement(GuestList,{state:guest,onRefresh(){},onKick:async()=>true}));
  assert.equal((hostHTML.match(/class="kick-button"/g)||[]).length,1);assert.ok(!guestHTML.includes('kick-button'));
- const lobby=renderToStaticMarkup(createElement(RoomIdentity,{state:host,busy:false,onChange(){}}));assert.match(lobby,/<select/);
+ const lobby=renderToStaticMarkup(createElement(RoomIdentity,{state:host,busy:false,onChange(){}}));assert.ok(!lobby.includes('<select'));assert.match(lobby,/private code assigned/);
  mutateRoom(room,'start',hashToken(token),1,200);
  const locked=renderToStaticMarkup(createElement(RoomIdentity,{state:serializeRoom(room,hashToken(token),300),busy:false,onChange(){}}));
- assert.ok(!locked.includes('<select'));assert.match(locked,/locked for this round/);
+ assert.ok(!locked.includes('<select'));assert.match(locked,/private code assigned/);
 });

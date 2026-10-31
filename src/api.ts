@@ -2,7 +2,7 @@ import {apiEndpoint} from './deployment';
 import type {State} from './types';
 export const makeToken=()=>{const b=new Uint8Array(32);crypto.getRandomValues(b);return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');};
 export async function request<T=State>(action:string, token:string, data:Record<string,unknown>={},signal?:AbortSignal):Promise<T>{
- const r=await fetch(apiEndpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({action,...data}),signal});
+ const r=await fetch(apiEndpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({action,...data}),signal});
  let body;try{body=await r.json();}catch{throw new Error('The room service is not available yet. Please try again shortly.');}
  if(!r.ok){const e=new Error(body.error?.message||body.error||body.message||'Something went wrong.') as Error & {code?:string};e.code=body.error?.code;throw e;}
  return body;

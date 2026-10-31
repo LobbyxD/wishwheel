@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
-// Public routing metadata, never a credential. Set to the deployed Worker URL
-// for production; local Vite uses the local-only /api/room integration harness.
-const productionApi = 'https://wishwheel.daniel1233212.workers.dev/api/room';
-export const apiEndpoint = import.meta.env?.DEV ? '/api/room' : (productionApi || '/api/room');
+// Vercel proxies this dedicated namespace to the existing deployed Worker.
+// A same-origin path keeps Google session cookies first-party, including Safari.
+// It also avoids the older /api/room setup-guard function.
+export const apiEndpoint = import.meta.env?.DEV ? '/api/room' : '/api/wishwheel/room';
+export const authEndpoint = import.meta.env?.DEV ? '/api/auth' : '/api/wishwheel/auth';

@@ -6,7 +6,7 @@ import worker from '../worker/index.mjs';
 import { newToken } from '../server/engine.mjs';
 const origin='https://wishwheel.lobbyx3.com';
 function fixture(t){
- const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync(new URL('../worker/migrations/0001_rooms.sql',import.meta.url),'utf8'));t.after(()=>sqlite.close());
+ const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync(new URL('../worker/migrations/0001_rooms.sql',import.meta.url),'utf8'));sqlite.exec(readFileSync(new URL('../worker/migrations/0002_google_sessions.sql',import.meta.url),'utf8'));t.after(()=>sqlite.close());
  return {ALLOWED_ORIGINS:origin,DB:{prepare(sql){return {bind(...args){return {async first(){return sqlite.prepare(sql).get(...args)||null;},async run(){return {meta:{changes:Number(sqlite.prepare(sql).run(...args).changes)}};}};}};}}};
 }
 function request(body,extra={}) {return new Request('https://example.workers.dev/api/room',{method:'POST',headers:{origin,'content-type':'application/json','cf-connecting-ip':'192.0.2.1',...extra},body:JSON.stringify(body)});}

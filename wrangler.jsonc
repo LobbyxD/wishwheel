@@ -3,15 +3,28 @@
   "name": "wishwheel",
   "main": "worker/index.mjs",
   "compatibility_date": "2026-10-30",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
-  "vars": { "ALLOWED_ORIGINS": "https://wishwheel.lobbyx3.com" },
-  "d1_databases": [{
-    "binding": "DB",
-    "database_name": "wishwheel-data",
-    "database_id": "cff7fb98-7dc0-4162-88ef-83c0ec7bcddb",
-    "migrations_dir": "worker/migrations"
-  }],
-  "triggers": { "crons": ["17 * * * *"] },
-  "observability": { "enabled": false }
+  "vars": {
+    "ALLOWED_ORIGINS": "https://wishwheel.lobbyx3.com",
+    "GOOGLE_CLIENT_ID": "1023483962049-v8ctljjk7c972hfn2kcr52sl4jinhbfs.apps.googleusercontent.com"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wishwheel-data",
+      "database_id": "cff7fb98-7dc0-4162-88ef-83c0ec7bcddb",
+      "migrations_dir": "worker/migrations"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "17 * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": false
+  }
 }

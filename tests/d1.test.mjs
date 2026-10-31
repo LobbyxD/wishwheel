@@ -10,7 +10,7 @@ import { createRoom, hashToken, newToken } from '../server/engine.mjs';
 // D1's binding/result shape; it does not emulate query or concurrency semantics.
 function fixture(t) {
  const sqlite=new DatabaseSync(':memory:');
- sqlite.exec(readFileSync(new URL('../worker/migrations/0001_rooms.sql',import.meta.url),'utf8'));
+ sqlite.exec(readFileSync(new URL('../worker/migrations/0001_rooms.sql',import.meta.url),'utf8'));sqlite.exec(readFileSync(new URL('../worker/migrations/0002_google_sessions.sql',import.meta.url),'utf8'));
  t.after(()=>sqlite.close());
  const db={prepare(sql){return {bind(...args){return {
   async first(){return sqlite.prepare(sql).get(...args)||null;},

@@ -3,6 +3,7 @@ import type {CSSProperties} from 'react';
 import {Bell, Gift, Heart, Music2, Snowflake, Star, TreePine} from 'lucide-react';
 import type {Item, Settings} from './types';
 import {useAnimatedSlices} from './useAnimatedSlices';
+import {WHEEL_SPIN_MS} from './draw-motion';
 
 const colors = ['#f3dfbb', '#e0b66b', '#214e47', '#f5e2bf', '#ac2243', '#dfb269', '#214e47', '#ad2042'];
 const decorativeIcons = [TreePine, Star, Gift, Heart, Snowflake, Bell, Music2, Gift];
@@ -20,9 +21,9 @@ function slicePath(start: number, end: number) {
  return `M 200 200 L ${200 + 173 * Math.cos(a)} ${200 + 173 * Math.sin(a)} A 173 173 0 ${span > 180 ? 1 : 0} 1 ${200 + 173 * Math.cos(b)} ${200 + 173 * Math.sin(b)} Z`;
 }
 
-export default function Wheel({items, spinning, result, hidden = false, settings, decorative = false, hebrew = false}: {
+export default function Wheel({items, spinning, result, hidden = false, settings, decorative = false, hebrew = false,spectating=false,winnerExtracted=false}: {
  items: Item[]; spinning: boolean; result: Item | null; hidden?: boolean;
- settings?: Settings; decorative?: boolean; hebrew?: boolean;
+ settings?: Settings; decorative?: boolean; hebrew?: boolean;spectating?:boolean;winnerExtracted?:boolean;
 }) {
  const id = useId().replace(/:/g, '');
  const display = useMemo(() => items.length ? items : placeholders[hebrew ? 'he' : 'en'].map((label, i) => ({id: String(i + 1), label})), [items, hebrew]);
@@ -47,12 +48,12 @@ export default function Wheel({items, spinning, result, hidden = false, settings
  }, [spinning, result?.id, selectedIndex, target]);
 
  const imageCover = hidden && settings?.coverType === 'image';
- return <div className={`wheel-stage ${decorative ? 'decorative' : ''} ${spinning ? 'is-spinning' : ''} ${popped ? 'has-winner' : ''} ${slicing?'is-slicing':''}`}
+ return <div className={`wheel-stage ${decorative ? 'decorative' : ''} ${spinning ? 'is-spinning' : ''} ${popped&&!spectating&&!winnerExtracted ? 'has-winner' : ''} ${slicing?'is-slicing':''} ${spectating?'spectator-wheel':''}`}
   aria-label={hidden ? (hebrew ? 'גלגל מסתורי' : 'Mystery wheel') : (hebrew ? 'גלגל ההגרלה' : 'Roulette wheel')}>
   <div className="wheel-orbit orbit-one" /><div className="wheel-orbit orbit-two" />
   <span className="wheel-star star-one" aria-hidden="true">✦</span><span className="wheel-star star-two" aria-hidden="true">✧</span><span className="wheel-star star-three" aria-hidden="true">✦</span>
   <div className="wheel-pointer" /><div className="wheel-shadow" />
-  <div className="wheel-disc" style={{transform: `rotate(${rotation}deg)`, transition: spinning ? 'transform 4.8s cubic-bezier(.12,.65,.12,1)' : 'none'}}>
+  <div className="wheel-disc" style={{transform: `rotate(${rotation}deg)`, transition: spinning ? `transform ${WHEEL_SPIN_MS}ms cubic-bezier(.12,.65,.12,1)` : 'none'}}>
    <svg viewBox="0 0 400 400" role="img" aria-label={`${hidden ? (hebrew ? 'גלגל מכוסה' : 'Covered wheel') : (hebrew ? 'גלגל שמות' : 'Name wheel')} · ${count} ${hebrew ? 'פלחים' : 'slices'}`}>
     <defs>
      <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fbe6a5" /><stop offset=".25" stopColor="#a46a2f" /><stop offset=".5" stopColor="#e8ba69" /><stop offset=".8" stopColor="#8b5327" /><stop offset="1" stopColor="#ffeab5" /></linearGradient>
@@ -60,7 +61,7 @@ export default function Wheel({items, spinning, result, hidden = false, settings
     </defs>
     <circle cx="200" cy="200" r="195" fill={`url(#${id}-rim)`} /><circle cx="200" cy="200" r="190" fill="#5a3020" stroke="#f5d38b" strokeWidth="1.5" /><circle cx="200" cy="200" r="178" fill={`url(#${id}-rim)`} />
     {display.map((item, index) => {
-     const winner = popped && selectedIndex === index;
+     const winner = popped && !spectating && selectedIndex === index;
      const arc=arcs.get(item.id)||{start:360,end:360};
      const midpoint=(arc.start+arc.end)/2;
      const angle = (midpoint - 90) * Math.PI / 180;
@@ -68,7 +69,7 @@ export default function Wheel({items, spinning, result, hidden = false, settings
      const path = slicePath(arc.start,arc.end);
      const DecorativeIcon = decorativeIcons[index % decorativeIcons.length];
      return <g key={item.id} data-wheel-slice={index} className={`${winner ? 'winning-slice' : 'wheel-slice'} ${added.has(item.id)?'joining-slice':''}`}
-      style={{transform: winner ? `translate(${Math.cos(angle) * 19}px,${Math.sin(angle) * 19}px)` : 'translate(0,0)'}}>
+      style={{opacity:winnerExtracted&&selectedIndex===index?0:1,transform: winner ? `translate(${Math.cos(angle) * 19}px,${Math.sin(angle) * 19}px)` : 'translate(0,0)'}}>
       <path d={path} fill={hidden ? settings?.coverColor || '#a82643' : colors[index % colors.length]} />
       {imageCover && <image href={settings.coverImage || '/assets/holiday-scene.webp'} x="27" y="27" width="346" height="346"
        preserveAspectRatio="xMidYMid slice" clipPath={`url(#${id}-slice-${index})`} />}
@@ -84,7 +85,7 @@ export default function Wheel({items, spinning, result, hidden = false, settings
    </svg>
   </div>
   <div className="wheel-hub"><Star size={29} strokeWidth={1.1} fill="#f5d18e" /></div>
-  {popped && <div className="winner-sparkles" aria-hidden="true">✦<span>✧</span>✦</div>}
-  {popped && <div className="winner-confetti" aria-hidden="true">{Array.from({length:18},(_,index)=><span key={index} style={{'--confetti-x':`${(index-8.5)*22}px`,'--confetti-r':`${index*47}deg`,animationDelay:`${index*.025}s`} as CSSProperties}>{index%3?'✦':'❄'}</span>)}</div>}
+  {popped&&!spectating&&!winnerExtracted && <div className="winner-sparkles" aria-hidden="true">✦<span>✧</span>✦</div>}
+  {popped&&!spectating&&!winnerExtracted && <div className="winner-confetti" aria-hidden="true">{Array.from({length:18},(_,index)=><span key={index} style={{'--confetti-x':`${(index-8.5)*22}px`,'--confetti-r':`${index*47}deg`,animationDelay:`${index*.025}s`} as CSSProperties}>{index%3?'✦':'❄'}</span>)}</div>}
  </div>;
 }

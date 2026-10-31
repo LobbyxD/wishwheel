@@ -3,12 +3,13 @@ import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+for(const filename of ['.env.local','.dev.vars']){const file=path.join(root,filename);if(existsSync(file))process.loadEnvFile(file);}
 const viteEntry=path.join(root,'node_modules/vite/bin/vite.js');
 if(!existsSync(viteEntry)){
  console.error('Wishwheel dependencies are missing. Run npm ci first (npm.cmd ci in Windows PowerShell), then run npm run dev again.');
  process.exit(1);
 }
-console.log('\nWishwheel local development: rooms are saved on this computer, not connected to Supabase.\n');
+console.log('\nWishwheel local development: rooms are saved on this computer, not the production D1 database.\n');
 const children=[];
 let closing=false;
 function close(code=0){if(closing)return;closing=true;for(const child of children)child.kill('SIGTERM');process.exitCode=code;}

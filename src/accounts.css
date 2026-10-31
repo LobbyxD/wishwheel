@@ -1,0 +1,42 @@
+.account-panel{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:20px 0 6px;padding:14px 18px;background:color-mix(in srgb,var(--paper) 75%,transparent);border:1px solid var(--line);border-radius:15px}
+.account-intro{display:flex;flex-direction:column;gap:5px;max-width:430px}
+.account-intro strong{font-size:13px}.account-intro small{color:var(--muted);font-size:11px;line-height:1.6}
+.account-options{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.account-options>.button{font-size:11px;min-height:40px;padding:9px 15px}
+.google-button{width:260px;max-width:100%;min-height:40px;display:flex;align-items:center}
+.google-button>div{max-width:100%}
+.account-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.account-status>svg{color:var(--gold)}
+.account-person{display:flex;align-items:center;gap:11px}
+.account-person strong{display:block;font-size:12px;overflow-wrap:anywhere}
+.account-person small{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);margin-top:5px}
+.account-avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--gold);font-family:var(--heading);font-size:22px;flex-shrink:0}
+.account-panel>.text-button{color:var(--gold);font-size:11px}
+.account-panel>.upload-error{width:100%;margin:0}
+.invitation-manager{padding:21px}
+.invitation-manager>.small{margin-top:12px}
+.issue-codes{margin-top:15px;width:100%;font-size:11px}
+.invitation-list{margin-top:14px;max-height:520px;overflow:auto;padding:1px}
+.invitation-person{padding:13px 0;border-bottom:1px solid var(--line)}
+.invitation-person:last-child{border:0}
+.invitation-person-heading{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.invitation-person-heading strong{font-size:12px;overflow-wrap:anywhere}
+.invitation-person-heading small{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:9px;white-space:nowrap}
+.invitation-code-row{display:flex;align-items:center;gap:5px;margin-top:10px}
+.invitation-code-row input{min-height:35px;width:104px;flex-shrink:0;font-size:14px;letter-spacing:2px;font-family:monospace;padding:8px;color:var(--gold);text-align:center}
+.invitation-code-row .icon-button{width:27px;height:30px}
+.invitation-code-row .text-button{margin-inline-start:auto;font-size:10px;white-space:nowrap;gap:4px}
+.invite-confirm{margin-top:10px;padding:12px;background:var(--soft);border:1px solid var(--line);border-radius:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.invite-confirm p{width:100%;font-size:10px;line-height:1.7;color:var(--muted)}
+.invite-confirm .button{font-size:10px;min-height:34px;padding:8px 10px;margin-inline-start:auto}
+.invite-confirm .text-button{font-size:10px}
+.code-memory-note{font-size:10px}
+@media(max-width:1000px){.account-panel{gap:14px}.account-options{gap:8px}.invitation-code-row{flex-wrap:wrap}}
+@media(max-width:760px){
+ .account-panel{padding:14px;margin-top:17px;gap:14px}
+ .account-intro{max-width:none}.account-options{width:100%;flex-direction:column;align-items:flex-start}
+ .google-button{width:260px;max-width:100%}.account-options>.button{min-height:40px}
+ .invitation-code-row input{font-size:16px;width:119px}
+ .invitation-code-row .icon-button{width:30px}
+ .invitation-code-row .text-button{font-size:11px}
+}

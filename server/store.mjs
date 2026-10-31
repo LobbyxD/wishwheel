@@ -31,5 +31,17 @@ export class D1Store {
       RETURNING count`,[bucket,now+seconds,now,now]);
     return row.count<=limit;
   }
-  async cleanup() { await this.query('DELETE FROM wishwheel_limits WHERE expires_at <= ?', [Math.floor(Date.now()/1000)],'run'); }
+  async sessionRead(hash) {
+    const row=await this.query('SELECT account, expires_at FROM wishwheel_google_sessions WHERE token_hash = ?',[hash]);
+    return row?{account:JSON.parse(row.account),expiresAt:Number(row.expires_at)}:null;
+  }
+  async sessionInsert(hash,session) {
+    await this.query('INSERT INTO wishwheel_google_sessions (token_hash, account, expires_at) VALUES (?, ?, ?)',[hash,JSON.stringify(session.account),session.expiresAt],'run');
+    await this.query('DELETE FROM wishwheel_google_sessions WHERE token_hash IN (SELECT token_hash FROM wishwheel_google_sessions WHERE expires_at <= ? LIMIT 20)',[Date.now()],'run');
+  }
+  async sessionDelete(hash) { await this.query('DELETE FROM wishwheel_google_sessions WHERE token_hash = ?',[hash],'run'); }
+  async cleanup() {
+    await this.query('DELETE FROM wishwheel_limits WHERE expires_at <= ?', [Math.floor(Date.now()/1000)],'run');
+    await this.query('DELETE FROM wishwheel_google_sessions WHERE expires_at <= ?', [Date.now()],'run');
+  }
 }

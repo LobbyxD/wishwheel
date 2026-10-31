@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto';
 import { AppError, hashToken, validToken } from './engine.mjs';
 import { roomService } from './service.mjs';
 
-export function createHandler(createStore) {
+export function createHandler(createStore,account=null) {
  return async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store, max-age=0');
-  res.setHeader('Vary','Authorization');
+  res.setHeader('Vary','Authorization, Cookie');
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','no-referrer');
   if(!['GET','POST'].includes(req.method)) {res.setHeader('Allow','GET, POST'); return res.status(405).json({error:{code:'METHOD_NOT_ALLOWED',message:'Use GET or POST.'}});}
@@ -25,9 +25,11 @@ export function createHandler(createStore) {
     const ip=String(req.headers['x-vercel-forwarded-for']||req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0].trim();
     const bucket=createHash('sha256').update(`wishwheel:${ip}`).digest('hex');
     if(!await store.rate(`ip:${bucket}`,1200,60)) throw new AppError('RATE_LIMITED','Too many requests. Please wait a minute.',429);
+    if(input.action==='join'&&input.inviteCode&&!await store.rate(`invite:${bucket}:${String(input.code).trim().toUpperCase()}`,60,600)) throw new AppError('RATE_LIMITED','Too many private-code attempts. Please wait a few minutes.',429);
+    if(account&&!await store.rate(`account:${input.action==='state'?'read':'write'}:${hashToken(account.id)}:${String(input.code||'create')}`,input.action==='state'?90:45,60)) throw new AppError('RATE_LIMITED','Too many requests. Please wait a minute.',429);
     if(validToken(token) && !await store.rate(`session:${input.action==='state'?'read':'write'}:${hashToken(token)}`,input.action==='state'?90:45,60)) throw new AppError('RATE_LIMITED','Too many requests. Please wait a minute.',429);
     if(input.action==='create' && !await store.rate(`create:${bucket}`,15,3600)) throw new AppError('RATE_LIMITED','Too many rooms created. Please try again later.',429);
-    const result=await roomService(store,input,token);
+    const result=await roomService(store,input,token,Date.now(),account);
     return res.status(200).json(result);
   } catch(error) {
     const expected=error instanceof AppError;

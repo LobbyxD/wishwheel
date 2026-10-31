@@ -38,7 +38,7 @@ Follow [the deployment guide](docs/DEPLOYMENT.md). Create the private D1 databas
 
 ## Privacy and recovery
 
-A room code lets someone join an open room; it does not prove their identity. Each participant has a private device capability. Recovery links and exported recovery files contain that capability, so anyone who receives one can access that participant’s result and, for the host, room controls. Keep them private. A name alone cannot recover a participant’s place.
+A room code lets someone join an open room; it does not prove their identity. Each participant has a private device capability. Recovery links and exported recovery files contain that capability, so for guest places anyone who receives one can access that participant’s result and, for the host, room controls. Keep them private. A name alone cannot recover a participant’s place.
 
 The browser stores room entries on that device. Use the in-app recovery or backup options before changing devices or clearing browser storage. Recovery files contain credentials, not room data; the corresponding room must still exist on the backend. Production room data remains in Cloudflare D1 until removed by an administrator. Local room data remains in `.wishwheel/rooms.json` until that file is removed.
 
@@ -52,3 +52,5 @@ The soundtrack is synthesized locally and begins after user interaction. Home Sc
 - [Verification notes](qa/VERIFICATION.md)
 - [Generated visual assets](design/ASSET-NOTES.md)
 - [Soundtrack notes](design/SOUNDTRACK.md)
+
+The app includes a two-sided animated result slice, a private hidden result card, shared spectator celebrations, Google/guest access and private person codes for prelisted rooms. See [Google setup](docs/GOOGLE-SIGN-IN.md) and [animation QA](docs/DRAW-EXPERIENCE.md). Google-linked places require the same signed-in account even when using a private code or recovery file.

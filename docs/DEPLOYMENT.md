@@ -19,11 +19,11 @@ The existing local development API persists only to `.wishwheel/rooms.json`. It 
 
 1. Sign in to the intended Cloudflare account; verify **Workers Free**, not Paid. Create a D1 database named `wishwheel-data` on the Free plan. With authenticated Wrangler: `npx wrangler d1 create wishwheel-data`.
 2. Put its returned nonsecret database UUID in `wrangler.jsonc` (`database_id`). Keep the binding named `DB`. No account API token belongs in Git or frontend variables.
-3. Review and apply `npm run db:migrate:remote`. This creates only Wishwheel's private room and rate-counter tables in that selected database.
+3. Review and apply `npm run db:migrate:remote`. This creates Wishwheel's private room, rate-counter and Google-session tables in that selected database.
 4. Set `ALLOWED_ORIGINS` to the exact frontend origin `https://wishwheel.lobbyx3.com`. Add preview origins individually only when intentionally granting preview access to this database. No wildcard or arbitrary forwarded-host validation.
 5. Keep the existing Cloudflare project name **wishwheel**, matching `wrangler.jsonc`. When importing GitHub, the default build command `npm run build` and deploy command `npx wrangler deploy` are supported; no need to clear the build command or rename the project. Alternatively deploy with `npm run worker:deploy`. Note the actual HTTPS workers.dev endpoint. No DNS change is needed.
-6. Set `productionApi` in `src/deployment.ts` to that actual URL ending `/api/room`; add only that origin to `connect-src` in `vercel.json`. These URLs are public, not secrets. Do not publish a placeholder hostname.
-7. Run tests/build, push the reviewed code to GitHub, and wait for Vercel's deployment. No Supabase environment variables are used. Vercel serves the frontend only; browser requests go directly to the Worker over HTTPS.
+6. Set the destination of Vercel's `/api/wishwheel/:path*` rewrite to the actual Worker URL ending `/api/:path*`. Keep `src/deployment.ts` using the same-origin `/api/wishwheel/room` path so Google sessions use first-party HttpOnly cookies. The separate path avoids the older `/api/room` setup guard. These URLs are public, not secrets.
+7. Run tests/build, push the reviewed code to GitHub, and wait for Vercel's deployment. No Supabase environment variables are used. Vercel serves the frontend and proxies `/api/wishwheel/*` to the same Worker over HTTPS. Requests and response cookies must pass through uncached.
 8. Verify CORS preflight from the real frontend, room creation, independent guests, reload/recovery, draw, and reset. API responses must remain `private, no-store`. Do not claim production success before these checks.
 
 **Future updates:** GitHub-to-Vercel deploys only the frontend. Changes to `worker/` or `server/` also need explicit Worker deployment; schema changes need reviewed D1 migrations. Do not assume pushing GitHub updates the Worker.
@@ -40,8 +40,12 @@ Private recovery links/files contain member capabilities. They do not back up th
 
 Current published free allowances include Workers 100,000 requests/day and 10ms CPU per HTTP request; D1 5 million rows read/day, 100,000 rows written/day and 500MB per database. Index updates also consume write allowance. Check the account dashboard and official limits before launch; free does not mean unlimited availability.
 
-Polling pauses in hidden/offline tabs, uses 5-second intervals during an unfinished active draw and 15 seconds in the lobby/after the participant's result. Returning to the tab immediately refreshes and re-blurs the result. Scheduled cleanup removes expired rate counters hourly, not room data. Do not enable response caching for authenticated state. Logs/analytics must not include tokens, recovery fragments, full state or request bodies.
+Polling pauses in hidden/offline tabs, uses 5-second intervals throughout active rounds, including after a participant's own result, and 15 seconds in the lobby or completed room. Returning to the tab immediately refreshes and re-blurs the result. Scheduled cleanup removes expired rate counters and Google sessions hourly, not room data. Do not enable response caching for authenticated state. Logs/analytics must not include tokens, recovery fragments, full state or request bodies.
 
 Test at least one full names-only round for each size 4–20, plus simultaneous duplicate spins, concurrent joins, reload, owner reset racing a spin, stale-generation rejection and host/guest response privacy. Automated SQLite tests are not a substitute for final Worker and production-browser tests. Local wall-time/CPU measurements do not prove Cloudflare's CPU accounting.
 
 References: [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [D1 limits](https://developers.cloudflare.com/d1/platform/limits/), [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [D1 consistency](https://developers.cloudflare.com/d1/best-practices/read-replication/).
+
+## Google sign-in activation
+
+Set the public `GOOGLE_CLIENT_ID` in `wrangler.jsonc`, register the website origin in Google Cloud, apply migrations before deploying the Worker, then deploy the updated Vercel frontend. No client secret is needed. See [Google sign-in setup](GOOGLE-SIGN-IN.md). Guest access remains available without Google configuration.

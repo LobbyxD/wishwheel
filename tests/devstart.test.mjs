@@ -46,6 +46,14 @@ test('dev startup handles a busy API port, proxies requests, and releases its po
  assert.notEqual(apiPort,3001);
  const base=`http://127.0.0.1:${uiPort}`;
  assert.equal((await fetch(base)).status,200);
+ const auth=await fetch(`${base}/api/auth/session`,{headers:{Origin:base}});
+ assert.equal(auth.status,200);
+ const authState=await auth.json();assert.equal(authState.user,null);assert.match(authState.nonce,/^[A-Za-z0-9_-]{43}$/);
+ const nonceCookie=auth.headers.getSetCookie()[0];assert.match(nonceCookie,/HttpOnly/);
+ const logout=await fetch(`${base}/api/auth/logout`,{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:nonceCookie.split(';')[0]},body:'{}'});
+ assert.equal(logout.status,200);assert.equal(logout.headers.getSetCookie().length,2);
+ const crossOrigin=await fetch(`${base}/api/auth/google`,{method:'POST',headers:{Origin:'https://evil.example','Content-Type':'application/json'},body:'{}'});
+ assert.equal(crossOrigin.status,403);
  const response=await fetch(`${base}/api/room`,{
   method:'POST',headers:{'Content-Type':'application/json'},
   body:JSON.stringify({action:'create',name:'Startup Test',settings:{title:'Port fallback test'}})

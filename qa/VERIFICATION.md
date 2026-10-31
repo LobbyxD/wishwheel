@@ -1,6 +1,16 @@
 # Wishwheel verification
 
-Last updated: 2026-10-30. This describes checks actually performed, not an assertion of live production readiness.
+Last updated: 2026-10-31. This describes checks actually performed, not an assertion of live production readiness.
+
+## 2026-10-31: latest source, animated reveals and private accounts
+
+Release follow-up: the Google OAuth client ID is now configured. Remote migration checks report no pending migrations, and the production D1 database contains `wishwheel_google_sessions`. The Worker was deployed successfully as version `4306146c-a1b1-457c-93c4-2a321cc2326c`. Its live auth session endpoint returns HTTP 200 with the configured public client ID, an anonymous user and an HttpOnly/Secure nonce cookie; an invalid Google credential is rejected with HTTP 401. All 88 tests and the production frontend build pass before the authorized push to `main`. A real Google account browser sign-in remains unverified.
+
+- Pulled `origin/main` with a fast-forward to `cf53a26`; prior uncommitted changes remain saved in the named Git stash. Restored account/private-invitation work against the current Worker/D1 backend.
+- All 88 tests pass, including actual React portal behavior under Happy DOM and SQLite-backed Worker tests. TypeScript/Vite production build passes. Wrangler 4.156.0 `deploy --dry-run` successfully bundles the Worker against the configured existing D1 binding; it does not deploy or migrate anything.
+- DOM tests exercise twirl/reveal, text vanishing, morph/docking, hidden saved result, Escape, reduced motion and reset/navigation cancellation. Backend tests verify spectator timing excludes selected items and angles, and Google locks cannot be bypassed with copied or regenerated codes.
+- No browser surface is connected. GPU/compositing appearance, real Google sign-in, iPhone/Safari behavior and the deployed Vercel cookie proxy still need browser verification. `GOOGLE_CLIENT_ID` is empty; apply the new session migration and configure that public ID before enabling Google login.
+- Detailed checks: `docs/DRAW-EXPERIENCE.md` and `docs/GOOGLE-SIGN-IN.md`. Earlier evidence below describes older source states.
 
 ## Theme, upload, wheel and turn-status update
 

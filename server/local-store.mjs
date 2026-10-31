@@ -1,4 +1,4 @@
-// Local development storage only. Production continues to use SupabaseStore.
+// Local development storage only. Production uses the Cloudflare D1 store.
 import {mkdirSync, readFileSync, openSync, writeFileSync, fsyncSync, closeSync, renameSync, unlinkSync, statSync} from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -47,6 +47,9 @@ export class LocalFileStore {
   }
  }
  async read(code){return this.records()[code]||null;}
+ async sessionRead(hash){return this.records()[`@session:${hash}`]?.session||null;}
+ async sessionInsert(hash,session){return this.locked(records=>{records[`@session:${hash}`]={session};for(const [key,value] of Object.entries(records))if(key.startsWith('@session:')&&value.session?.expiresAt<=Date.now())delete records[key];});}
+ async sessionDelete(hash){return this.locked(records=>{delete records[`@session:${hash}`];});}
  async byOwner(hash){return Object.values(this.records()).find(record=>record.ownerHash===hash)||null;}
  async insert(state,ownerHash){return this.locked(records=>{
   if(records[state.code]||Object.values(records).some(record=>record.ownerHash===ownerHash))throw new AppError('CONFLICT','Room already exists.',409);
