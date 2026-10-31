@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-31. This describes checks actually performed, not an assertion of live production readiness.
 
+## 2026-10-31: extracted slice proportions
+
+The reveal previously stretched every sector into an independently sized square/rectangle. Popup dimensions now come from the original sector's bounding-box ratio and fit inside the viewport with one uniform scale. The arrival transform and image crop also preserve their aspect ratios; nonuniform scaling is reserved for the intentional rectangle morph on close. Regression tests cover 1/2/3/4/6/8/12/50/100 slices on desktop, portrait and landscape, plus the actual React popup dimensions. All 97 tests and the production build pass. No browser surface was available for visual verification.
+
 ## 2026-10-31: expandable guests, floating reveal and live room updates
 
 Release checks: all 96 tests pass, including the actual Cloudflare runtime and local Vite WebSocket proxy; TypeScript/Vite production build passes. Worker version `91fe1032-d473-461c-a2c2-829856c60c32` is deployed with the SQLite notification binding. A temporary production probe measured join/spin notifications at 415/411 ms respectively, confirmed no result was broadcast, and accepted a capacity of 1,000. Only that new, explicitly marked probe room was removed afterward. These measurements are one network smoke test, not a general latency or capacity guarantee.

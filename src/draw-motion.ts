@@ -47,12 +47,22 @@ export function landedSlice(count:number){
 
 export function sliceSource(wheel:Rect,count:number):Rect{
  const slice=landedSlice(count);
- return {left:wheel.left+wheel.width*slice.left/400,top:wheel.top+wheel.height*slice.top/400,width:wheel.width*slice.width/400,height:wheel.height*slice.height/400};
+ const side=Math.min(wheel.width,wheel.height);
+ return {left:wheel.left+(wheel.width-side)/2+side*slice.left/400,top:wheel.top+(wheel.height-side)/2+side*slice.top/400,width:side*slice.width/400,height:side*slice.height/400};
 }
 
-export function rectTransform(from:Rect,to:Rect){
+export function sliceRevealSize(count:number,viewport:{width:number;height:number}){
+ const shape=landedSlice(count),compact=viewport.height<=650;
+ const maxWidth=Math.max(1,Math.min(compact?340:560,viewport.width-64));
+ const maxHeight=Math.max(1,compact?viewport.height-170:Math.min(viewport.height*.49,420));
+ const scale=Math.min(maxWidth/shape.width,maxHeight/shape.height);
+ return {width:shape.width*scale,height:shape.height*scale};
+}
+
+export function rectTransform(from:Rect,to:Rect,preserveAspect=false){
  if(!from.width||!from.height||!to.width||!to.height)return 'none';
- return `translate(${from.left+from.width/2-to.left-to.width/2}px,${from.top+from.height/2-to.top-to.height/2}px) scale(${from.width/to.width},${from.height/to.height})`;
+ const scaleX=from.width/to.width,scaleY=from.height/to.height;
+ return `translate(${from.left+from.width/2-to.left-to.width/2}px,${from.top+from.height/2-to.top-to.height/2}px) scale(${preserveAspect?Math.min(scaleX,scaleY):`${scaleX},${scaleY}`})`;
 }
 
 export function animateElement(element:Element,keyframes:Keyframe[],options:KeyframeAnimationOptions,signal?:AbortSignal):Promise<void>{

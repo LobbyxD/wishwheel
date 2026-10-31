@@ -2,7 +2,7 @@ import {useLayoutEffect,useRef,useState} from 'react';
 import type {CSSProperties,RefObject} from 'react';
 import {createPortal} from 'react-dom';
 import {ArrowDown,Gift,LockKeyhole,Sparkles,X} from 'lucide-react';
-import {animateElement,fitSliceLabel,landedSlice,rectTransform,sliceSource} from './draw-motion';
+import {animateElement,fitSliceLabel,landedSlice,rectTransform,sliceRevealSize,sliceSource} from './draw-motion';
 import type {Item,Settings} from './types';
 import {en,he} from './i18n';
 
@@ -10,12 +10,19 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
  result:Item;count:number;index:number;settings:Settings;wheel:RefObject<HTMLDivElement|null>;destination:RefObject<HTMLElement|null>;onDock:()=>void;hebrew?:boolean;reduced?:boolean;
 }){
  const t=hebrew?he:en,shape=landedSlice(count),label=fitSliceLabel(result.label);
+ const [viewport,setViewport]=useState(()=>({width:window.visualViewport?.width||window.innerWidth,height:window.visualViewport?.height||window.innerHeight}));
+ const size=sliceRevealSize(count,viewport);
  const [phase,setPhase]=useState<'arriving'|'revealed'|'vanishing'|'docking'>('arriving');
  const ticket=useRef<HTMLDivElement>(null),flipper=useRef<HTMLDivElement>(null),back=useRef<HTMLDivElement>(null),ink=useRef<SVGSVGElement>(null),closeButton=useRef<HTMLButtonElement>(null);
  const lifetime=useRef(new AbortController()),intro=useRef(new AbortController()),closing=useRef(false),closeAction=useRef(()=>{});
  const onDockRef=useRef(onDock);onDockRef.current=onDock;
  const image= settings.wheelHidden&&settings.coverType==='image';
  const color=settings.wheelHidden?settings.coverColor:['#f3dfbb','#e0b66b','#214e47','#f5e2bf','#ac2243','#dfb269','#214e47','#ad2042'][Math.max(index,0)%8];
+ useLayoutEffect(()=>{
+  const resize=()=>setViewport({width:window.visualViewport?.width||window.innerWidth,height:window.visualViewport?.height||window.innerHeight});
+  window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',resize);
+  return()=>{window.removeEventListener('resize',resize);window.visualViewport?.removeEventListener('resize',resize);};
+ },[]);
  useLayoutEffect(()=>{
   lifetime.current=new AbortController();intro.current=new AbortController();
   const signal=intro.current.signal,previous=document.activeElement as HTMLElement|null;
@@ -35,7 +42,7 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
   const source=wheel.current?.querySelector('svg')?.getBoundingClientRect();
   const start=source?sliceSource(source,count):piece.getBoundingClientRect();
   void Promise.all([
-   animateElement(piece,[{transform:rectTransform(start,piece.getBoundingClientRect()),opacity:.3},{transform:'translate(0,-18px) scale(1.12)',opacity:1,offset:.75},{transform:'none',opacity:1}],{duration:reducedMotion?0:1600,easing:'cubic-bezier(.16,.8,.24,1)',fill:'both'},signal),
+   animateElement(piece,[{transform:rectTransform(start,piece.getBoundingClientRect(),true),opacity:.3},{transform:'translate(0,-18px) scale(1.12)',opacity:1,offset:.75},{transform:'none',opacity:1}],{duration:reducedMotion?0:1600,easing:'cubic-bezier(.16,.8,.24,1)',fill:'both'},signal),
    animateElement(flip,[{transform:'rotateY(0deg) rotateZ(-8deg)'},{transform:'rotateY(1980deg) rotateZ(0deg)'}],{duration:reducedMotion?0:2050,easing:'cubic-bezier(.12,.68,.12,1)',fill:'forwards'},signal),
   ]).then(()=>{if(!signal.aborted){flip.style.transform='rotateY(1980deg)';setPhase('revealed');}});
   return()=>{
@@ -77,9 +84,9 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
    <p className="eyebrow draw-kicker"><Sparkles size={14}/>{t.onlyYourEyes}</p>
    <h2 id="draw-title">{phase==='arriving'?t.unwrappingSlice:phase==='revealed'?t.resultTitle:t.tuckingAway}</h2>
    <p id="draw-description" className="draw-description">{t.slicePrivacy}</p>
-   <div className="draw-ticket-space"><div ref={ticket} className="draw-ticket"><div ref={flipper} className="draw-flipper">
+   <div className="draw-ticket-space"><div ref={ticket} className="draw-ticket" style={{width:size.width,height:size.height}}><div ref={flipper} className="draw-flipper">
     <div className="slice-face slice-front" style={{clipPath:shape.polygon,background:color}} aria-hidden="true">
-     {image&&<svg viewBox={`${shape.left} ${shape.top} ${shape.width} ${shape.height}`} preserveAspectRatio="none"><g transform={`rotate(${-((Math.max(index,0)+.5)*360/Math.max(count,1))} 200 200)`}><image href={settings.coverImage||'/assets/holiday-scene.webp'} x="27" y="27" width="346" height="346" preserveAspectRatio="xMidYMid slice"/></g></svg>}
+     {image&&<svg viewBox={`${shape.left} ${shape.top} ${shape.width} ${shape.height}`} preserveAspectRatio="xMidYMid meet"><g transform={`rotate(${-((Math.max(index,0)+.5)*360/Math.max(count,1))} 200 200)`}><image href={settings.coverImage||'/assets/holiday-scene.webp'} x="27" y="27" width="346" height="346" preserveAspectRatio="xMidYMid slice"/></g></svg>}
      <div className="slice-front-magic"><Gift size={46} strokeWidth={1}/><span>✦</span></div>
     </div>
     <div ref={back} className="slice-face slice-back" style={{clipPath:shape.polygon}}>

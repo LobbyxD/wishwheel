@@ -12,7 +12,7 @@ async function loadSource(path){
  const source=built.outputFiles[0].text.replace(/from "(react(?:\/[^" ]+)?|react-dom(?:\/[^" ]+)?|lucide-react)"/g,(_,name)=>`from ${JSON.stringify(import.meta.resolve(name))}`);
  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 }
-const {fitSliceLabel,landedSlice,sliceSource,rectTransform}=await loadSource('../src/draw-motion.ts');
+const {fitSliceLabel,landedSlice,sliceSource,sliceRevealSize,rectTransform}=await loadSource('../src/draw-motion.ts');
 const {nextActivity,publicPlayers}=await loadSource('../src/room-activity.ts');
 const {default:DrawReveal}=await loadSource('../src/DrawReveal.tsx');
 const {RosterFields}=await loadSource('../src/RosterFields.tsx');
@@ -30,6 +30,19 @@ test('landed slice geometry and fly-to-card transforms stay finite for every sup
  assert.equal(rectTransform({left:10,top:20,width:100,height:100},{left:0,top:0,width:0,height:0}),'none');
 });
 
+test('popped slices preserve the wheel sector proportions on desktop, mobile and landscape',()=>{
+ for(const count of [1,2,3,4,6,8,12,50,100])for(const viewport of [{width:1920,height:1080},{width:390,height:844},{width:844,height:390}]){
+  const shape=landedSlice(count),size=sliceRevealSize(count,viewport),source=sliceSource({left:20,top:40,width:400,height:400},count);
+  assert.ok(Math.abs(size.width/size.height-shape.width/shape.height)<1e-10);
+  assert.ok(size.width<=viewport.width-64);assert.ok(size.height<=viewport.height-170);
+  const transform=rectTransform(source,{left:0,top:0,...size},true),scales=transform.match(/scale\(([^)]+)\)/)[1].split(',');
+  assert.equal(scales.length,1,'Opening must use one uniform scale; two axes stretch the circular sector');
+ }
+ const three=sliceRevealSize(3,{width:1920,height:1080});assert.ok(Math.abs(three.width/three.height-Math.sqrt(3))<1e-10);
+ const squareSource=sliceSource({left:20,top:40,width:400,height:400},3),letterboxed=sliceSource({left:20,top:40,width:600,height:400},3);
+ assert.equal(letterboxed.left,squareSource.left+100);assert.equal(letterboxed.width/squareSource.width,1);assert.equal(letterboxed.height/squareSource.height,1);
+});
+
 function dom(t){
  const window=new Window({url:'http://localhost:5173'}),document=window.document;
  const saved=new Map();
@@ -44,7 +57,7 @@ function dom(t){
  };
  window.Element.prototype.getAnimations=function(){return animations.filter(animation=>animation.element===this&&!animation.cancelled);};
  window.Element.prototype.scrollIntoView=function(){this.dataset.scrolled='true';};
- window.Element.prototype.getBoundingClientRect=function(){return this.matches('.draw-ticket')?{left:350,top:200,width:290,height:290}:this.matches('svg')?{left:40,top:120,width:400,height:400}:{left:50,top:650,width:350,height:190};};
+ window.Element.prototype.getBoundingClientRect=function(){return this.matches('.draw-ticket')?{left:350,top:200,width:parseFloat(this.style.width)||290,height:parseFloat(this.style.height)||290}:this.matches('svg')?{left:40,top:120,width:400,height:400}:{left:50,top:650,width:350,height:190};};
  document.body.innerHTML='<div id="root"></div>';
  const root=createRoot(document.getElementById('root'));
  t.after(async()=>{await act(async()=>root.unmount());await window.happyDOM.close();for(const [key,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}});
@@ -71,6 +84,9 @@ test('first-result popup twirls to its back, vanishes the text, morphs and docks
  assert.equal(document.getElementById('root').inert,true);
  assert.equal(document.activeElement.getAttribute('aria-label'),'Close');
  assert.ok(!document.querySelector('.draw-reveal').textContent.includes(secret));
+ const piece=document.querySelector('.draw-ticket'),shape=landedSlice(8);
+ assert.ok(Math.abs(parseFloat(piece.style.width)/parseFloat(piece.style.height)-shape.width/shape.height)<1e-6);
+ assert.equal(document.querySelector('.slice-front>svg').getAttribute('preserveAspectRatio'),'xMidYMid meet');
  const turn=animations.find(animation=>animation.element.matches('.draw-flipper'));
  const finalAngle=Number(turn.frames.at(-1).transform.match(/rotateY\((\d+)deg/)[1]);
  assert.ok(finalAngle>1080);assert.equal(finalAngle%360,180);
