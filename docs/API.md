@@ -10,6 +10,31 @@
 
 ## Requests
 
+### Keep-alive monitoring
+
+`GET /api/keep-alive` accepts only `Authorization: Bearer <KEEP_ALIVE_SECRET>`.
+The Vercel frontend proxies this exact path to the Worker. Machine monitoring uses
+this secret independently of browser origins and participant credentials.
+
+The endpoint updates `keep_alive.last_updated` for `id = 1` with the current ISO
+timestamp and returns the stored timestamp as `{ "ok": true, "updated_at": "..." }`.
+All responses are JSON and uncached. Other methods return `405` with `Allow: GET`.
+
+| Status | JSON body |
+| --- | --- |
+| 500 | `{ "error": "KEEP_ALIVE_SECRET is not configured on the server" }` |
+| 401 | `{ "error": "Unauthorized" }` |
+| 500 | `{ "error": "Database update failed" }` |
+| 404 | `{ "error": "Keep-alive row not found", "hint": "Run the seed SQL: INSERT INTO keep_alive (id) VALUES (1);" }` |
+
+This adapts the shared keep-alive contract to Wishwheel's existing private D1
+database. D1 stores ISO timestamps as `TEXT`; its private Worker binding replaces
+Supabase's service role and RLS. No Supabase environment variables are required.
+Migration `0003_keep_alive.sql` creates and seeds the table without resetting an
+existing timestamp. See [deployment setup](DEPLOYMENT.md#keep-alive-monitoring).
+
+### Room requests
+
 Worker POST `/api/room` JSON `{action,code?,name?,settings?,generation?,inviteCode?,slotId?}` with a participant bearer token and/or a verified Google session cookie. Production frontend path: `/api/wishwheel/room`.
 GET `/api/room?code=ABC234` is also supported for state.
 Actions: `create`, `join`, `state`, `start`, `spin`, `reset`, `preview`, `identify`, `kick`, `issue-invites`, `regenerate-invite`.

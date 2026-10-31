@@ -1,3 +1,5 @@
 # Public Google OAuth Web client ID; no client secret is used.
 GOOGLE_CLIENT_ID=YOUR_CLIENT_ID.apps.googleusercontent.com
 ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+# Generate a unique secret; set production with: npx wrangler secret put KEEP_ALIVE_SECRET
+KEEP_ALIVE_SECRET=

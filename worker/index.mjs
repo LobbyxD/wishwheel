@@ -3,12 +3,15 @@ import { D1Store } from '../server/store.mjs';
 import { AppError } from '../server/engine.mjs';
 import {handleAuth,readAccount} from '../server/google-auth.mjs';
 import {publicRoomEvent} from '../server/live.mjs';
+import {handleKeepAlive} from '../server/keep-alive.mjs';
 export {RoomLive} from '../server/live.mjs';
 
 const headers={'Cache-Control':'private, no-store, max-age=0','Vary':'Authorization','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 function error(status,code,message) { return Response.json({error:{code,message}},{status,headers}); }
 async function handle(request,env,createStore,verifyGoogle) {
   const url=new URL(request.url);
+  // Machine monitoring uses its own bearer secret, independent of room origins/sessions.
+  if(url.pathname==='/api/keep-alive')return handleKeepAlive(request,env);
   if(!['/api/room','/api/live','/api/live-ticket'].includes(url.pathname)&&!url.pathname.startsWith('/api/auth/')) return error(404,'NOT_FOUND','Not found.');
   // Explicit public frontend origins, never X-Forwarded-Host or a suffix match.
   const origins=String(env.ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean);

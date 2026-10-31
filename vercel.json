@@ -54,6 +54,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/keep-alive",
+      "destination": "https://wishwheel.daniel1233212.workers.dev/api/keep-alive"
+    },
+    {
       "source": "/api/wishwheel/:path*",
       "destination": "https://wishwheel.daniel1233212.workers.dev/api/:path*"
     }

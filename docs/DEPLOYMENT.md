@@ -28,6 +28,36 @@ The existing local development API persists only to `.wishwheel/rooms.json`. It 
 
 **Future updates:** GitHub-to-Vercel deploys only the frontend. Changes to `worker/` or `server/` also need explicit Worker deployment; schema changes need reviewed D1 migrations. Do not assume pushing GitHub updates the Worker.
 
+## Keep-alive monitoring
+
+The shared keep-alive endpoint uses the existing private D1 database. Set it up
+with the same Free plan and database binding as the room API:
+
+1. Run `npm run db:migrate:remote` to apply `0003_keep_alive.sql`, which creates
+   `keep_alive` and seeds row `1` without overwriting an existing timestamp.
+2. Generate a unique secret in a password manager and run
+   `npx wrangler secret put KEEP_ALIVE_SECRET` to enter it securely for the Worker.
+   Keep the same value in the monitoring dashboard's Bearer Secret field.
+3. Deploy the Worker with `npm run worker:deploy`, then deploy the Vercel change
+   containing the `/api/keep-alive` rewrite.
+4. Configure the monitor to send `GET https://wishwheel.lobbyx3.com/api/keep-alive`
+   with `Authorization: Bearer <KEEP_ALIVE_SECRET>`. Use the dashboard's header
+   field; never put the secret in the URL. The direct Worker path also works.
+5. Verify an authenticated request returns `200` and `{ "ok": true, "updated_at":
+   "..." }`, and a request without the header returns `401`. Confirm the stored
+   D1 timestamp matches the response before claiming production success.
+
+The secret belongs only in Worker secrets and the monitor; Vercel and the browser
+need no credentials. Do not commit it or log authorization headers. Missing
+configuration, database failures and missing seed rows return the documented
+[JSON errors](API.md#keep-alive-monitoring); the endpoint never creates a missing
+row during a request.
+
+For local verification, set a disposable `KEEP_ALIVE_SECRET` in ignored
+`.dev.vars`, run `npm run db:migrate:local`, then `npm run worker:dev` and use its
+printed URL with `/api/keep-alive`. The Node room API started by `npm run dev`
+does not connect to D1; use Wrangler for this database health check.
+
 ## Correctness and privacy
 
 D1 stores each whole room with a revision. Every mutation conditionally updates `WHERE code=? AND revision=?`; a conflict re-reads and revalidates authentication, membership, generation and draw availability. The database's unique owner hash prevents duplicate rooms on concurrent create retries. No process-memory or filesystem production room fallback is present.
