@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-31. This describes checks actually performed, not an assertion of live production readiness.
 
+## 2026-10-31: natural text and shared wheel path
+
+The earlier aspect-ratio change left SVG `textLength`/`spacingAndGlyphs` forcing result letters to estimated widths. Result labels now use normal HTML typography fitted by actual DOM width/height measurements; only font size and wrapping change. Popup surfaces and the original wheel now share the same SVG sector path, with one uniformly scaled wheel canvas and a smaller maximum reveal size. All 98 tests and the production build pass. DOM tests confirm no forced glyph-width attributes remain and cover long/Hebrew labels. Browser inventory is empty and opening the in-app browser reports it is unavailable, so final appearance has not been visually verified.
+
 ## 2026-10-31: extracted slice proportions
 
 The reveal previously stretched every sector into an independently sized square/rectangle. Popup dimensions now come from the original sector's bounding-box ratio and fit inside the viewport with one uniform scale. The arrival transform and image crop also preserve their aspect ratios; nonuniform scaling is reserved for the intentional rectangle morph on close. Regression tests cover 1/2/3/4/6/8/12/50/100 slices on desktop, portrait and landscape, plus the actual React popup dimensions. All 97 tests and the production build pass. No browser surface was available for visual verification.

@@ -3,7 +3,7 @@ import type {CSSProperties} from 'react';
 import {Bell, Gift, Heart, Music2, Snowflake, Star, TreePine} from 'lucide-react';
 import type {Item, Settings} from './types';
 import {useAnimatedSlices} from './useAnimatedSlices';
-import {WHEEL_SPIN_MS} from './draw-motion';
+import {WHEEL_SPIN_MS,wheelSlicePath as slicePath} from './draw-motion';
 
 const colors = ['#f3dfbb', '#e0b66b', '#214e47', '#f5e2bf', '#ac2243', '#dfb269', '#214e47', '#ad2042'];
 const decorativeIcons = [TreePine, Star, Gift, Heart, Snowflake, Bell, Music2, Gift];
@@ -11,15 +11,6 @@ const placeholders = {
  en: ['Noah', 'Olivia', 'Liam', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Emma'],
  he: ['נועם', 'מיה', 'אורי', 'אלה', 'איתי', 'שירה', 'דניאל', 'מאיה']
 };
-
-function slicePath(start: number, end: number) {
- const span=end-start;
- if (span >= 359.999) return 'M 200 27 A 173 173 0 1 1 200 373 A 173 173 0 1 1 200 27 Z';
- if(span<.001)return 'M 200 200 Z';
- const a = (start - 90) * Math.PI / 180;
- const b = (end - 90) * Math.PI / 180;
- return `M 200 200 L ${200 + 173 * Math.cos(a)} ${200 + 173 * Math.sin(a)} A 173 173 0 ${span > 180 ? 1 : 0} 1 ${200 + 173 * Math.cos(b)} ${200 + 173 * Math.sin(b)} Z`;
-}
 
 export default function Wheel({items, spinning, result, hidden = false, settings, decorative = false, hebrew = false,spectating=false,winnerExtracted=false}: {
  items: Item[]; spinning: boolean; result: Item | null; hidden?: boolean;

@@ -15,7 +15,7 @@ The update is based on `cf53a26`, pulled from `origin/main` on 2026-10-31. Earli
 
 Visible clients subscribe to authenticated live notifications, including after receiving their own result. Public spin start/end timestamps let them animate current turns and advance at completion without another API request. Reconnection, safety refreshes and a short polling fallback keep state synchronized. The shared wheel rotation is decorative: no other person's item or landing angle is transmitted. Completed historical turns do not replay when someone rejoins. Concurrent non-turn spins can share a celebration.
 
-Result labels use fitted SVG lines inside a fixed safe area of the slice. Long labels and Hebrew wrap and shrink without introducing an inner scrollbar. Guest creation uses individual fields with Add another/remove controls. The former 50-person cap is removed, while provider storage/request limits remain practical bounds.
+Result labels use normal HTML text inside a fixed safe area of the slice. The browser measures the actual text and adjusts only font size and wrapping; it never forces glyph widths or spacing. The wheel and popup share one SVG sector-path function, drawn on a uniformly scaled canvas. Long labels and Hebrew wrap and shrink without introducing an inner scrollbar. Guest creation uses individual fields with Add another/remove controls. The former 50-person cap is removed, while provider storage/request limits remain practical bounds.
 
 ## Automated evidence
 

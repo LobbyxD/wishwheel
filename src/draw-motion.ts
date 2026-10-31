@@ -4,23 +4,19 @@ export const DRAW_REVEAL_MS=5000;
 export type Rect={left:number;top:number;width:number;height:number};
 type Point={x:number;y:number};
 
-export function fitSliceLabel(label:string,width=420,height=230){
- const segmenter=typeof Intl.Segmenter==='function'?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null;
- const glyphs=(text:string)=>segmenter?[...segmenter.segment(text)].map(part=>part.segment):Array.from(text);
- const words=label.split(/\s+/).map(glyphs);
- for(let fontSize=110;fontSize>=12;fontSize--){
-  const capacity=Math.max(1,Math.floor(width/(fontSize*.68))),lines:string[]=[];
-  let line='';
-  for(const word of words){
-   const letters=[...word];
-   if(line&&Array.from(line).length+letters.length+1>capacity){lines.push(line);line='';}
-   while(letters.length>capacity){if(line){lines.push(line);line='';}lines.push(letters.splice(0,capacity).join(''));}
-   if(letters.length)line+=(line?' ':'')+letters.join('');
-  }
-  if(line)lines.push(line);
-  if(lines.length*fontSize*1.2<=height||fontSize===12)return {fontSize,lines:lines.map(text=>({text,width:Math.min(width,[...text].length*fontSize*.68)}))};
- }
- return {fontSize:12,lines:[{text:label,width}]};
+export function wheelSlicePath(start:number,end:number){
+ const span=end-start;
+ if(span>=359.999)return 'M 200 27 A 173 173 0 1 1 200 373 A 173 173 0 1 1 200 27 Z';
+ if(span<.001)return 'M 200 200 Z';
+ const a=(start-90)*Math.PI/180,b=(end-90)*Math.PI/180;
+ return `M 200 200 L ${200+173*Math.cos(a)} ${200+173*Math.sin(a)} A 173 173 0 ${span>180?1:0} 1 ${200+173*Math.cos(b)} ${200+173*Math.sin(b)} Z`;
+}
+
+// Fit by changing font size only. Never widen glyphs or apply scaleX/textLength.
+export function naturalFontSize(fits:(size:number)=>boolean,min=8,max=36){
+ let best=min,low=min,high=max;
+ while(low<=high){const size=Math.floor((low+high)/2);if(fits(size)){best=size;low=size+1;}else high=size-1;}
+ return best;
 }
 
 // The landed slice faces twelve o'clock. Normalize its actual outline so the
@@ -42,7 +38,7 @@ export function landedSlice(count:number){
   const y=distance<=1?(1-distance)*100:distance<=2?0:distance<=3?(distance-2)*100:100;
   return `${x.toFixed(4)}% ${y.toFixed(4)}%`;
  }).join(',')})`;
- return {left,top,width,height,polygon,rectangle};
+ return {left,top,width,height,polygon,rectangle,path:wheelSlicePath(-180/size,180/size)};
 }
 
 export function sliceSource(wheel:Rect,count:number):Rect{
@@ -53,9 +49,10 @@ export function sliceSource(wheel:Rect,count:number):Rect{
 
 export function sliceRevealSize(count:number,viewport:{width:number;height:number}){
  const shape=landedSlice(count),compact=viewport.height<=650;
- const maxWidth=Math.max(1,Math.min(compact?340:560,viewport.width-64));
- const maxHeight=Math.max(1,compact?viewport.height-170:Math.min(viewport.height*.49,420));
- const scale=Math.min(maxWidth/shape.width,maxHeight/shape.height);
+ // Enlarge the same square wheel canvas uniformly, rather than magnifying a
+ // wide sector's cropped bounds until it dominates the screen.
+ const canvas=Math.max(1,Math.min(compact?340:480,viewport.width-64,compact?viewport.height-170:viewport.height*.49));
+ const scale=canvas/400;
  return {width:shape.width*scale,height:shape.height*scale};
 }
 

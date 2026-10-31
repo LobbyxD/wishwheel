@@ -12,7 +12,7 @@ async function loadSource(path){
  const source=built.outputFiles[0].text.replace(/from "(react(?:\/[^" ]+)?|react-dom(?:\/[^" ]+)?|lucide-react)"/g,(_,name)=>`from ${JSON.stringify(import.meta.resolve(name))}`);
  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 }
-const {fitSliceLabel,landedSlice,sliceSource,sliceRevealSize,rectTransform}=await loadSource('../src/draw-motion.ts');
+const {naturalFontSize,wheelSlicePath,landedSlice,sliceSource,sliceRevealSize,rectTransform}=await loadSource('../src/draw-motion.ts');
 const {nextActivity,publicPlayers}=await loadSource('../src/room-activity.ts');
 const {default:DrawReveal}=await loadSource('../src/DrawReveal.tsx');
 const {RosterFields}=await loadSource('../src/RosterFields.tsx');
@@ -66,14 +66,14 @@ function dom(t){
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function finish(animations,predicate=()=>true){await act(async()=>{for(const animation of animations)if(animation.pending&&predicate(animation))animation.finish();await tick();});}
 const secret='A wonderfully private surprise';
-function fixture(onDock,reduced=false){
+function fixture(onDock,reduced=false,label=secret){
  function Host(){
   const [show,setShow]=useState(true);
   const wheel=React.useRef(null),destination=React.useRef(null);
   return React.createElement(React.Fragment,null,
    React.createElement('div',{ref:wheel},React.createElement('svg')),
-   React.createElement('section',{ref:destination,'data-destination':true,className:show?'is-awaiting-slice':''},React.createElement('button',{'aria-label':'Tap to reveal'},React.createElement('span',{'aria-hidden':true},secret))),
-   show&&React.createElement(DrawReveal,{result:{id:'item-4',label:secret},count:8,index:4,settings:{wheelHidden:true,coverType:'image',coverImage:'/test-cover.webp'},wheel,destination,reduced,onDock(){onDock();setShow(false);}}));
+   React.createElement('section',{ref:destination,'data-destination':true,className:show?'is-awaiting-slice':''},React.createElement('button',{'aria-label':'Tap to reveal'},React.createElement('span',{'aria-hidden':true},label))),
+   show&&React.createElement(DrawReveal,{result:{id:'item-4',label},count:8,index:4,settings:{wheelHidden:true,coverType:'image',coverImage:'/test-cover.webp'},wheel,destination,reduced,onDock(){onDock();setShow(false);}}));
  }
  return React.createElement(Host);
 }
@@ -87,6 +87,8 @@ test('first-result popup twirls to its back, vanishes the text, morphs and docks
  const piece=document.querySelector('.draw-ticket'),shape=landedSlice(8);
  assert.ok(Math.abs(parseFloat(piece.style.width)/parseFloat(piece.style.height)-shape.width/shape.height)<1e-6);
  assert.equal(document.querySelector('.slice-front>svg').getAttribute('preserveAspectRatio'),'xMidYMid meet');
+ assert.equal(document.querySelector('.slice-back .slice-surface path').getAttribute('d'),wheelSlicePath(-22.5,22.5));
+ assert.equal(document.querySelector('.slice-back .slice-surface').getAttribute('preserveAspectRatio'),'xMidYMid meet');
  const turn=animations.find(animation=>animation.element.matches('.draw-flipper'));
  const finalAngle=Number(turn.frames.at(-1).transform.match(/rotateY\((\d+)deg/)[1]);
  assert.ok(finalAngle>1080);assert.equal(finalAngle%360,180);
@@ -151,14 +153,6 @@ test('server exposes spin timing to spectators without the chosen item or landin
  assert.ok(!JSON.stringify(bob).match(/result|itemId|angle|label|Private/));
 });
 
-test('long names, Hebrew and unbroken results fit inside the slice without scroll containers',()=>{
- for(const value of ['Daniel','A'.repeat(80),'A beautifully wrapped and wonderfully unexpected secret Christmas surprise','דניאל וההפתעה הסודית הארוכה שנשארת תמיד בתוך הפלישה']){
-  const label=fitSliceLabel(value);
-  assert.ok(label.lines.every(line=>line.width<=420));assert.ok(label.lines.length*label.fontSize*1.2<=230);
-  assert.equal(label.lines.map(line=>line.text).join('').replace(/\s/g,''),value.replace(/\s/g,''));
- }
-});
-
 test('guest fields grow beyond fifty, add focuses the new field, and removing keeps the remaining people',async t=>{
  const {document,root}=dom(t);
  function Form(){const [names,setNames]=useState(Array.from({length:55},(_,index)=>`Person ${index+1}`));return React.createElement(RosterFields,{settings:{participantMode:'roster'},names,onNames:setNames,onMode(){}});}
@@ -199,4 +193,23 @@ test('Google sign-in publishes the verified account immediately without an extra
  await act(async()=>{root.render(React.createElement(Account));await tick();});calls.length=0;
  await act(async()=>{await signInWithGoogle('signed-test-credential');await tick();});
  assert.equal(document.getElementById('account-name').textContent,'Alice');assert.equal(calls.length,1);assert.equal(calls[0].method,'POST');
+});
+
+test('result labels use natural HTML glyphs with no SVG stretching, including long and Hebrew names',async t=>{
+ const {document,root,animations}=dom(t);
+ for(const label of ['Daniel','A'.repeat(80),'A long surprise that should wrap rather than widen its letters','דניאל וההפתעה הסודית שלו']){
+  await act(async()=>{root.render(fixture(()=>{},true,label));await tick();});
+  const text=document.querySelector('.result-ink [data-ink]');
+  assert.equal(text.tagName,'STRONG');assert.equal(text.textContent,label);
+  assert.equal(document.querySelector('[textLength],[lengthAdjust]'),null);
+  assert.equal(text.style.transform,'');
+  assert.equal(document.querySelector('.result-ink').tagName,'DIV');
+ }
+ assert.ok(animations.filter(animation=>animation.element.matches('.draw-flipper')).every(animation=>animation.options.duration===0));
+});
+
+test('natural text fitting chooses only font size and never exceeds its measured space',()=>{
+ assert.equal(naturalFontSize(size=>size<=23),23);
+ assert.equal(naturalFontSize(()=>true),36);
+ assert.equal(naturalFontSize(()=>false),8);
 });

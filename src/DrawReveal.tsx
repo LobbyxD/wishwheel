@@ -1,19 +1,19 @@
-import {useLayoutEffect,useRef,useState} from 'react';
+import {useId,useLayoutEffect,useRef,useState} from 'react';
 import type {CSSProperties,RefObject} from 'react';
 import {createPortal} from 'react-dom';
 import {ArrowDown,Gift,LockKeyhole,Sparkles,X} from 'lucide-react';
-import {animateElement,fitSliceLabel,landedSlice,rectTransform,sliceRevealSize,sliceSource} from './draw-motion';
+import {animateElement,landedSlice,naturalFontSize,rectTransform,sliceRevealSize,sliceSource} from './draw-motion';
 import type {Item,Settings} from './types';
 import {en,he} from './i18n';
 
 export default function DrawReveal({result,count,index,settings,wheel,destination,onDock,hebrew=false,reduced=false}:{
  result:Item;count:number;index:number;settings:Settings;wheel:RefObject<HTMLDivElement|null>;destination:RefObject<HTMLElement|null>;onDock:()=>void;hebrew?:boolean;reduced?:boolean;
 }){
- const t=hebrew?he:en,shape=landedSlice(count),label=fitSliceLabel(result.label);
+ const t=hebrew?he:en,shape=landedSlice(count),id=useId().replace(/:/g,'');
  const [viewport,setViewport]=useState(()=>({width:window.visualViewport?.width||window.innerWidth,height:window.visualViewport?.height||window.innerHeight}));
  const size=sliceRevealSize(count,viewport);
  const [phase,setPhase]=useState<'arriving'|'revealed'|'vanishing'|'docking'>('arriving');
- const ticket=useRef<HTMLDivElement>(null),flipper=useRef<HTMLDivElement>(null),back=useRef<HTMLDivElement>(null),ink=useRef<SVGSVGElement>(null),closeButton=useRef<HTMLButtonElement>(null);
+ const ticket=useRef<HTMLDivElement>(null),flipper=useRef<HTMLDivElement>(null),ink=useRef<HTMLDivElement>(null),closeButton=useRef<HTMLButtonElement>(null);
  const lifetime=useRef(new AbortController()),intro=useRef(new AbortController()),closing=useRef(false),closeAction=useRef(()=>{});
  const onDockRef=useRef(onDock);onDockRef.current=onDock;
  const image= settings.wheelHidden&&settings.coverType==='image';
@@ -23,6 +23,19 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
   window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',resize);
   return()=>{window.removeEventListener('resize',resize);window.visualViewport?.removeEventListener('resize',resize);};
  },[]);
+ useLayoutEffect(()=>{
+  if(phase!=='revealed')return;
+  const box=ink.current,text=box?.querySelector<HTMLElement>('[data-ink]');if(!box||!text)return;
+  let active=true;
+  const fit=()=>{
+   if(!active||!box.clientWidth||!box.clientHeight)return;
+   const fontSize=naturalFontSize(value=>{text.style.fontSize=`${value}px`;return text.scrollWidth<=box.clientWidth+.5&&text.scrollHeight<=box.clientHeight+.5;});
+   text.style.fontSize=`${fontSize}px`;
+  };
+  fit();const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(fit);observer?.observe(box);
+  void document.fonts?.ready.then(fit);
+  return()=>{active=false;observer?.disconnect();};
+ },[phase,result.label,size.width,size.height]);
  useLayoutEffect(()=>{
   lifetime.current=new AbortController();intro.current=new AbortController();
   const signal=intro.current.signal,previous=document.activeElement as HTMLElement|null;
@@ -85,16 +98,16 @@ export default function DrawReveal({result,count,index,settings,wheel,destinatio
    <h2 id="draw-title">{phase==='arriving'?t.unwrappingSlice:phase==='revealed'?t.resultTitle:t.tuckingAway}</h2>
    <p id="draw-description" className="draw-description">{t.slicePrivacy}</p>
    <div className="draw-ticket-space"><div ref={ticket} className="draw-ticket" style={{width:size.width,height:size.height}}><div ref={flipper} className="draw-flipper">
-    <div className="slice-face slice-front" style={{clipPath:shape.polygon,background:color}} aria-hidden="true">
+    <div className="slice-face slice-front" style={{clipPath:shape.polygon}} aria-hidden="true">
+     <svg className="slice-surface" viewBox={`${shape.left} ${shape.top} ${shape.width} ${shape.height}`} preserveAspectRatio="xMidYMid meet"><path d={shape.path} fill={color}/></svg>
      {image&&<svg viewBox={`${shape.left} ${shape.top} ${shape.width} ${shape.height}`} preserveAspectRatio="xMidYMid meet"><g transform={`rotate(${-((Math.max(index,0)+.5)*360/Math.max(count,1))} 200 200)`}><image href={settings.coverImage||'/assets/holiday-scene.webp'} x="27" y="27" width="346" height="346" preserveAspectRatio="xMidYMid slice"/></g></svg>}
      <div className="slice-front-magic"><Gift size={46} strokeWidth={1}/><span>✦</span></div>
     </div>
-    <div ref={back} className="slice-face slice-back" style={{clipPath:shape.polygon}}>
-     <svg className="slice-back-content result-ink" viewBox="0 0 1000 1000" ref={ink} role="img" aria-live="polite" aria-label={phase==='revealed'?result.label:t.yourSecretGift}>
-      <Gift x={460} y={90} width={80} height={80} strokeWidth={1.3}/><text className="slice-eyebrow" x="500" y="220" textAnchor="middle" fontSize="27">{t.yourSecretGift}</text>
-      {(phase==='revealed'||phase==='vanishing')&&label.lines.map((line,index)=><text data-ink="true" key={index} x="500" y={390-(label.lines.length-1)*label.fontSize*.6+index*label.fontSize*1.2} textAnchor="middle" direction={hebrew?'rtl':'ltr'} fontSize={label.fontSize} textLength={line.width} lengthAdjust="spacingAndGlyphs">{line.text}</text>)}
-      <LockKeyhole x={478} y={560} width={44} height={44}/>
-     </svg>
+    <div className="slice-face slice-back" style={{clipPath:shape.polygon}}>
+     <svg className="slice-surface" viewBox={`${shape.left} ${shape.top} ${shape.width} ${shape.height}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><radialGradient id={`${id}-paper`} cx="50%" cy="0%" r="110%"><stop stopColor="#fff9e4"/><stop offset=".65" stopColor="#f0d8a5"/><stop offset="1" stopColor="#bb8447"/></radialGradient></defs><path d={shape.path} fill={`url(#${id}-paper)`}/></svg>
+     <div className="slice-back-content">
+      <div ref={ink} className="result-ink" aria-live="polite" aria-label={phase==='revealed'?result.label:t.yourSecretGift}>{(phase==='revealed'||phase==='vanishing')&&<strong data-ink="true" dir="auto">{result.label}</strong>}</div>
+      {size.width>60&&<LockKeyhole className="slice-private-mark" size={15}/>}</div>
     </div>
    </div></div><div className="draw-halo" aria-hidden="true"/>{phase==='vanishing'&&<div className="ink-vapor" aria-hidden="true">{Array.from({length:22},(_,index)=><i key={index} style={{'--vapor-x':`${(index%7-3)*17}px`,'--vapor-delay':`${index%5*35}ms`} as CSSProperties}/>)}</div>}</div>
    <div className="draw-controls"><button className="button primary" onClick={()=>void close()} disabled={closing.current}><ArrowDown size={17}/>{t.keepMySurprise}</button><p>{t.hiddenAfterClose}</p></div>
